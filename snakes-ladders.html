@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f8b8d">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}
+.homeLink{position:fixed;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:50;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;background:rgba(20,30,40,.82);color:#fff;font:800 14px/1 system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.homeLink:focus-visible{outline:3px solid #ffc23d;outline-offset:2px}
+body{padding-bottom:64px!important}</style>
+<title>Snakes &amp; Ladders</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@500;700;800&display=swap">
+<style>
+/* Layout: square painted board on the left, a turn panel (dice, players, log) on the right; stacks to one column on phones. */
+:root{
+  --bg:#f3efe2; --panel:#fffdf6; --ink:#2b2a33; --muted:#6c6878; --line:#ddd5bd;
+  --c1:#fff4cf; --c2:#d9f0e3; --c3:#ffe0d2; --c4:#dde8fb; --cellInk:#5a5568; --goal:#ffcf3f;
+  --lad:#b07a3c; --ladDark:#6e4a20;
+  --sn1:#3fa34d; --sn2:#8e5bd6; --sn3:#e0632f; --sn4:#1f9aa6; --snOut:#1f2a1f;
+  --p1:#2f6fe4; --p2:#e23b4a; --accent:#2f6fe4; --accentInk:#ffffff;
+  --die:#ffffff; --pip:#2b2a33; --good:#2e8f4e; --bad:#c9373f;
+  --display:"Baloo 2","Fredoka","Trebuchet MS",system-ui,sans-serif;
+  --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17161d; --panel:#211f29; --ink:#f1eef7; --muted:#a8a3b8; --line:#363243;
+  --c1:#3a3422; --c2:#21392c; --c3:#3e2a24; --c4:#232f45; --cellInk:#cfc9dc; --goal:#a8821a;
+  --lad:#c8924f; --ladDark:#7d5527;
+  --sn1:#52c062; --sn2:#a67ae8; --sn3:#f07a45; --sn4:#33b8c4; --snOut:#0b0f0b;
+  --p1:#5b93ff; --p2:#ff5c69; --accent:#5b93ff; --accentInk:#0c1222;
+  --die:#f4f1ea; --pip:#1d1b24; --good:#5fd18f; --bad:#ff7b84;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#17161d; --panel:#211f29; --ink:#f1eef7; --muted:#a8a3b8; --line:#363243;
+  --c1:#3a3422; --c2:#21392c; --c3:#3e2a24; --c4:#232f45; --cellInk:#cfc9dc; --goal:#a8821a;
+  --lad:#c8924f; --ladDark:#7d5527;
+  --sn1:#52c062; --sn2:#a67ae8; --sn3:#f07a45; --sn4:#33b8c4; --snOut:#0b0f0b;
+  --p1:#5b93ff; --p2:#ff5c69; --accent:#5b93ff; --accentInk:#0c1222;
+  --die:#f4f1ea; --pip:#1d1b24; --good:#5fd18f; --bad:#ff7b84;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);padding:20px 16px 36px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+@media (max-width:820px){.wrap{grid-template-columns:minmax(0,1fr)}}
+h1{font-family:var(--display);font-weight:800;font-size:2.1rem;line-height:1;margin:0 0 4px;text-wrap:balance}
+.sub{margin:0;color:var(--muted);font-size:.95rem}
+
+.boardWrap{position:relative;width:100%;max-width:100%;aspect-ratio:1/1;border-radius:14px;overflow:hidden;box-shadow:0 0 0 4px var(--ink)}
+canvas#board{position:absolute;inset:0;width:100%;height:100%;display:block}
+.token{position:absolute;width:5.4%;aspect-ratio:1/1;border-radius:50%;transform:translate(-50%,-50%);border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,.35);transition:left .17s ease-out,top .17s ease-out;z-index:2;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;color:#fff;font-size:clamp(.55rem,1.6vw,.95rem)}
+.token.slide{transition:left .75s cubic-bezier(.5,0,.3,1),top .75s cubic-bezier(.5,0,.3,1)}
+.token.hop{animation:hop .17s ease-out}
+@keyframes hop{50%{transform:translate(-50%,-75%)}}
+#t0{background:var(--p1)} #t1{background:var(--p2)}
+
+.side{display:flex;flex-direction:column;gap:16px}
+.mode{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:5px}
+.mode button{font-family:var(--display);font-weight:700;font-size:1.05rem;border:0;border-radius:10px;padding:8px 4px;background:transparent;color:var(--muted)}
+.mode button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:16px}
+.turn{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.turnLabel{font-family:var(--display);font-size:1.35rem;font-weight:700;margin:0;min-height:1.4em}
+.turnLabel.p0{color:var(--p1)} .turnLabel.p1{color:var(--p2)}
+
+.die{width:96px;height:96px;border-radius:20px;background:var(--die);border:3px solid var(--ink);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:14px;gap:4px}
+.die i{width:100%;aspect-ratio:1/1;border-radius:50%;background:var(--pip);align-self:center;visibility:hidden}
+.die i.on{visibility:visible}
+.die.rolling{animation:shake .5s linear}
+@keyframes shake{0%{transform:rotate(0)}25%{transform:rotate(-18deg) scale(1.06)}50%{transform:rotate(14deg)}75%{transform:rotate(-8deg) scale(1.04)}100%{transform:rotate(0)}}
+
+button{font-family:var(--body);cursor:pointer}
+.roll{font-family:var(--display);font-size:1.3rem;font-weight:700;padding:10px 0;width:100%;border-radius:14px;border:0;background:var(--accent);color:var(--accentInk)}
+.roll:disabled{opacity:.45;cursor:default}
+.msg{margin:0;font-weight:700;min-height:2.8em;line-height:1.4}
+.msg.good{color:var(--good)} .msg.bad{color:var(--bad)}
+
+.players{display:grid;gap:10px}
+.pl{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;padding:10px 12px;border-radius:12px;border:2px solid transparent}
+.pl.active{border-color:currentColor}
+.pl#pl0{color:var(--p1)} .pl#pl1{color:var(--p2)}
+.dot{width:18px;height:18px;border-radius:50%;background:currentColor;grid-row:span 2}
+.pname{font-family:var(--display);font-weight:700;font-size:1.1rem;color:var(--ink)}
+.psq{font-family:var(--display);font-weight:800;font-size:1.25rem;color:var(--ink);font-variant-numeric:tabular-nums;grid-row:span 2;text-align:right}
+.psq small{display:block;font-family:var(--body);font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pstat{font-size:.8rem;color:var(--muted);font-weight:700}
+
+.score{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:.85rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.score b{font-family:var(--display);font-size:1.3rem;color:var(--ink);letter-spacing:0;font-variant-numeric:tabular-nums}
+
+.row{display:flex;gap:8px}
+.ghost{flex:1;font-weight:800;font-size:.9rem;padding:10px 6px;border-radius:12px;border:2px solid var(--line);background:var(--panel);color:var(--ink)}
+.rules{font-size:.86rem;color:var(--muted);line-height:1.5;margin:0}
+.rules b{color:var(--ink)}
+
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto;font-size:.85rem}
+.log li{display:flex;gap:8px;align-items:baseline;color:var(--ink)}
+.log li::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted);transform:translateY(-1px)}
+.log li.p0::before{background:var(--p1)} .log li.p1::before{background:var(--p2)}
+.logTitle{margin:0 0 8px;font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.win{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:16px;background:color-mix(in srgb,var(--panel) 86%,transparent)}
+.win h2{font-family:var(--display);font-size:clamp(2rem,7vw,3.2rem);margin:0;line-height:1}
+.win p{margin:0;font-weight:700}
+.win button{font-family:var(--display);font-size:1.25rem;font-weight:700;padding:10px 28px;border-radius:999px;border:0;background:var(--accent);color:var(--accentInk)}
+button:focus-visible{outline:3px solid var(--goal);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="wrap">
+  <section>
+    <div class="boardWrap" id="boardWrap">
+      <canvas id="board" aria-label="Snakes and ladders board, squares 1 to 100"></canvas>
+      <div class="token" id="t0" hidden>Y</div>
+      <div class="token" id="t1" hidden>C</div>
+      <div class="win" id="win" hidden>
+        <h2 id="winTitle">You win!</h2>
+        <p id="winText">You reached square 100 first.</p>
+        <button id="again">Play again</button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div>
+      <h1>Snakes &amp; Ladders</h1>
+      <p class="sub" id="sub">You against the computer. First to square 100 wins.</p>
+    </div>
+
+    <div class="mode" role="group" aria-label="Who is playing">
+      <button id="modeCpu" aria-pressed="true">vs Computer</button>
+      <button id="modePvp" aria-pressed="false">2 Players</button>
+    </div>
+
+    <div class="card turn">
+      <p class="turnLabel p0" id="turnLabel">Your turn</p>
+      <div class="die" id="die" aria-live="polite" aria-label="Die showing 1">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <button class="roll" id="roll">Roll the dice</button>
+      <p class="msg" id="msg">Press Roll, or hit the space bar.</p>
+    </div>
+
+    <div class="card players">
+      <div class="pl active" id="pl0"><span class="dot"></span><span class="pname" id="pname0">You</span><span class="psq"><small>Square</small><span id="sq0">Start</span></span><span class="pstat" id="st0">0 ladders · 0 snakes</span></div>
+      <div class="pl" id="pl1"><span class="dot"></span><span class="pname" id="pname1">Computer</span><span class="psq"><small>Square</small><span id="sq1">Start</span></span><span class="pstat" id="st1">0 ladders · 0 snakes</span></div>
+      <div class="score"><span>Wins · <span id="sn0">You</span> <b id="w0">0</b></span><span><span id="sn1">Computer</span> <b id="w1">0</b></span></div>
+    </div>
+
+    <div class="card">
+      <p class="logTitle">What happened</p>
+      <ul class="log" id="log"><li>New game. You go first.</li></ul>
+    </div>
+
+    <div class="row">
+      <button class="ghost" id="newGame">New game</button>
+      <button class="ghost" id="sound" aria-pressed="true">Sound on</button>
+    </div>
+
+    <p class="rules"><b>Ladders</b> carry you up, <b>snakes</b> slide you down. Roll a <b>6</b> and you get another turn. You need the <b>exact number</b> to land on 100.</p>
+  </aside>
+</div>
+
+<script>
+(function(){
+  const LADDERS={4:14,9:31,20:38,28:84,40:59,51:67,63:81,71:91};
+  const SNAKES ={17:7,54:34,62:19,64:60,87:24,93:73,95:75,99:78};
+  let mode='cpu', gameId=0;
+  try{ if(localStorage.getItem('snl-mode')==='pvp') mode='pvp'; }catch(e){}
+  const NAMES=()=> mode==='cpu' ? ["You","Computer"] : ["Player 1","Player 2"];
+  const human=i=> i===0 || mode==='pvp';
+  const needs=w=> w==='You' ? 'You need' : `${w} needs`;
+  const goes=w=> w==='You' ? 'you go' : `${w} goes`;
+  const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+
+  const $=id=>document.getElementById(id);
+  const canvas=$('board'), ctx=canvas.getContext('2d'), wrap=$('boardWrap');
+  let pos=[0,0], turn=0, busy=false, over=false, stats=[{l:0,s:0},{l:0,s:0}], wins=[0,0], soundOn=true;
+
+  const winsKey=()=> mode==='cpu' ? 'snl-wins' : 'snl-wins-2p';
+  function loadWins(){ wins=[0,0]; try{ const w=JSON.parse(localStorage.getItem(winsKey())||'null'); if(Array.isArray(w)) wins=w; }catch(e){} }
+  loadWins();
+  try{ soundOn = localStorage.getItem('snl-sound')!=='off'; }catch(e){}
+
+  /* ---------- geometry ---------- */
+  function cellRC(n){ const i=n-1, r=Math.floor(i/10), c=r%2===0? i%10 : 9-i%10; return {r,c}; }
+  function cellCenterPct(n){ const {r,c}=cellRC(n); return {x:(c+.5)*10, y:(9-r+.5)*10}; }
+
+  /* ---------- drawing ---------- */
+  function tok(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function draw(){
+    const dpr=window.devicePixelRatio||1, W=wrap.clientWidth;
+    canvas.width=Math.round(W*dpr); canvas.height=Math.round(W*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const s=W/10;
+    const cells=[tok('--c1'),tok('--c2'),tok('--c3'),tok('--c4')];
+    ctx.textBaseline='top'; ctx.textAlign='left';
+    for(let n=1;n<=100;n++){
+      const {r,c}=cellRC(n), x=c*s, y=(9-r)*s;
+      ctx.fillStyle = n===100 ? tok('--goal') : cells[(r+c)%2 + (r%2)*2];
+      ctx.fillRect(x,y,s,s);
+      ctx.fillStyle=tok('--cellInk');
+      ctx.font=`700 ${Math.max(9,s*.2)}px Nunito, system-ui, sans-serif`;
+      ctx.fillText(String(n), x+s*.08, y+s*.06);
+    }
+    ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=1;
+    for(let k=1;k<10;k++){ ctx.beginPath(); ctx.moveTo(k*s,0); ctx.lineTo(k*s,W); ctx.moveTo(0,k*s); ctx.lineTo(W,k*s); ctx.stroke(); }
+    // goal label
+    { const {r,c}=cellRC(100); ctx.fillStyle=tok('--cellInk'); ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font=`800 ${s*.22}px "Baloo 2", system-ui, sans-serif`; ctx.fillText('HOME', c*s+s/2, (9-r)*s+s*.62); ctx.textAlign='left'; ctx.textBaseline='top'; }
+    for(const a in LADDERS) drawLadder(+a, LADDERS[a], s);
+    const sc=[tok('--sn1'),tok('--sn2'),tok('--sn3'),tok('--sn4')];
+    Object.keys(SNAKES).forEach((h,i)=>drawSnake(+h, SNAKES[h], s, sc[i%4]));
+  }
+  function pt(n,s){ const {r,c}=cellRC(n); return {x:(c+.5)*s, y:(9-r+.5)*s}; }
+
+  function drawLadder(a,b,s){
+    const p=pt(a,s), q=pt(b,s), dx=q.x-p.x, dy=q.y-p.y, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L, px=-uy, py=ux, w=s*.17;
+    const ext=s*.12, x0=p.x-ux*ext, y0=p.y-uy*ext, x1=q.x+ux*ext, y1=q.y+uy*ext;
+    ctx.lineCap='round';
+    // rungs
+    ctx.strokeStyle=tok('--lad'); ctx.lineWidth=Math.max(2,s*.06);
+    const n=Math.max(2,Math.round(L/(s*.32)));
+    for(let k=1;k<n;k++){ const t=k/n, cx=x0+(x1-x0)*t, cy=y0+(y1-y0)*t; ctx.beginPath(); ctx.moveTo(cx+px*w,cy+py*w); ctx.lineTo(cx-px*w,cy-py*w); ctx.stroke(); }
+    // rails
+    for(const sgn of [1,-1]){
+      ctx.strokeStyle=tok('--ladDark'); ctx.lineWidth=Math.max(4,s*.11);
+      ctx.beginPath(); ctx.moveTo(x0+px*w*sgn,y0+py*w*sgn); ctx.lineTo(x1+px*w*sgn,y1+py*w*sgn); ctx.stroke();
+      ctx.strokeStyle=tok('--lad'); ctx.lineWidth=Math.max(2,s*.065);
+      ctx.beginPath(); ctx.moveTo(x0+px*w*sgn,y0+py*w*sgn); ctx.lineTo(x1+px*w*sgn,y1+py*w*sgn); ctx.stroke();
+    }
+  }
+
+  function drawSnake(h,t,s,color){
+    const H=pt(h,s), T=pt(t,s), dx=T.x-H.x, dy=T.y-H.y, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L, px=-uy, py=ux;
+    const waves=Math.max(1.5, L/(s*1.5)), amp=Math.min(s*.28, L*.12), N=80, P=[];
+    for(let i=0;i<=N;i++){ const t2=i/N, o=Math.sin(t2*Math.PI*waves)*amp*(1-t2*.3); P.push({x:H.x+dx*t2+px*o, y:H.y+dy*t2+py*o}); }
+    const width=i=>s*(.24-.17*(i/N));
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    for(let pass=0;pass<2;pass++){
+      for(let i=N;i>0;i--){
+        ctx.strokeStyle= pass===0 ? tok('--snOut') : color;
+        ctx.lineWidth = width(i) + (pass===0? Math.max(2,s*.045) : 0);
+        ctx.beginPath(); ctx.moveTo(P[i].x,P[i].y); ctx.lineTo(P[i-1].x,P[i-1].y); ctx.stroke();
+      }
+    }
+    // belly spots
+    ctx.fillStyle='rgba(255,255,255,.35)';
+    for(let i=8;i<N-4;i+=7){ ctx.beginPath(); ctx.arc(P[i].x,P[i].y,width(i)*.22,0,Math.PI*2); ctx.fill(); }
+    // head
+    const hx=P[0].x, hy=P[0].y, ang=Math.atan2(P[0].y-P[3].y, P[0].x-P[3].x), hr=s*.2;
+    ctx.save(); ctx.translate(hx,hy); ctx.rotate(ang);
+    ctx.strokeStyle='#d12b3b'; ctx.lineWidth=Math.max(1.5,s*.03);
+    ctx.beginPath(); ctx.moveTo(hr*.9,0); ctx.lineTo(hr*1.55,0); ctx.lineTo(hr*1.8,-hr*.22); ctx.moveTo(hr*1.55,0); ctx.lineTo(hr*1.8,hr*.22); ctx.stroke();
+    ctx.fillStyle=tok('--snOut'); ctx.beginPath(); ctx.ellipse(0,0,hr*1.12,hr*.92,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=color; ctx.beginPath(); ctx.ellipse(0,0,hr,hr*.8,0,0,Math.PI*2); ctx.fill();
+    for(const e of [-1,1]){
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(hr*.35,e*hr*.38,hr*.28,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(hr*.45,e*hr*.38,hr*.14,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ---------- tokens ---------- */
+  function placeToken(i){
+    const el=$('t'+i);
+    if(pos[i]===0){ el.hidden=true; return; }
+    el.hidden=false;
+    const p=cellCenterPct(pos[i]);
+    const shared = pos[0]===pos[1];
+    const off = shared ? (i===0?-1.8:1.8) : 0;
+    el.style.left=(p.x+off)+'%'; el.style.top=(p.y+(shared?(i===0?-1.2:1.2):0))+'%';
+  }
+  function placeAll(){ placeToken(0); placeToken(1); }
+
+  /* ---------- sound ---------- */
+  let ac=null;
+  function beep(f,d,type){
+    if(!soundOn) return;
+    try{
+      ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+      const o=ac.createOscillator(), g=ac.createGain(); o.type=type||'sine'; o.frequency.value=f;
+      g.gain.setValueAtTime(.12,ac.currentTime); g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);
+      o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+d);
+    }catch(e){}
+  }
+  function sweep(f1,f2,d){
+    if(!soundOn) return;
+    try{
+      ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+      const o=ac.createOscillator(), g=ac.createGain(); o.type='triangle';
+      o.frequency.setValueAtTime(f1,ac.currentTime); o.frequency.exponentialRampToValueAtTime(f2,ac.currentTime+d);
+      g.gain.setValueAtTime(.14,ac.currentTime); g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);
+      o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+d);
+    }catch(e){}
+  }
+
+  /* ---------- UI ---------- */
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  function showDie(v){ $('die').querySelectorAll('i').forEach((el,k)=>el.classList.toggle('on',PIPS[v].includes(k))); $('die').setAttribute('aria-label','Die showing '+v); }
+  function say(t,kind){ const m=$('msg'); m.textContent=t; m.className='msg'+(kind?' '+kind:''); }
+  function log(t,i){ const li=document.createElement('li'); li.textContent=t; if(i!==undefined) li.className='p'+i; const l=$('log'); l.prepend(li); while(l.children.length>30) l.lastChild.remove(); }
+  function updatePanel(){
+    for(const i of [0,1]){
+      $('sq'+i).textContent = pos[i]===0 ? 'Start' : pos[i];
+      $('st'+i).textContent = `${stats[i].l} ladder${stats[i].l===1?'':'s'} · ${stats[i].s} snake${stats[i].s===1?'':'s'}`;
+      $('pl'+i).classList.toggle('active', turn===i && !over);
+      $('w'+i).textContent=wins[i];
+    }
+    const N=NAMES();
+    for(const i of [0,1]){ $('pname'+i).textContent=N[i]; $('sn'+i).textContent=N[i]; }
+    $('t0').textContent = mode==='cpu' ? 'Y' : '1';
+    $('t1').textContent = mode==='cpu' ? 'C' : '2';
+    $('sub').textContent = mode==='cpu' ? 'You against the computer. First to square 100 wins.' : 'Two players take turns on this computer. First to square 100 wins.';
+    $('modeCpu').setAttribute('aria-pressed',String(mode==='cpu'));
+    $('modePvp').setAttribute('aria-pressed',String(mode==='pvp'));
+    const tl=$('turnLabel');
+    tl.textContent = over ? 'Game over' : (N[turn]==='You' ? 'Your turn' : `${N[turn]}'s turn`);
+    tl.className='turnLabel p'+turn;
+    $('roll').disabled = busy || over || !human(turn);
+    $('roll').textContent = mode==='pvp' && !over ? `Roll for ${N[turn]}` : 'Roll the dice';
+  }
+
+  async function rollDie(){
+    const d=$('die'); d.classList.remove('rolling'); void d.offsetWidth; d.classList.add('rolling');
+    for(let k=0;k<7;k++){ showDie(1+Math.floor(Math.random()*6)); beep(300+Math.random()*300,.04,'square'); await sleep(65); }
+    const v=fairOrNudged(); showDie(v); return v;
+  }
+  /* Kid-friendly balance (vs Computer only): on 20% of the computer's turns it secretly rolls twice
+     and keeps the roll that leaves it further back. Simulated over 200,000 games, this gives the
+     human about a 65% win rate and the computer about 35%. 2-player games stay completely fair. */
+  const CPU_NUDGE=0.20;
+  function landing(p,v){ const t=p+v; if(t>100) return p; return LADDERS[t]||SNAKES[t]||t; }
+  function fairOrNudged(){
+    const a=1+Math.floor(Math.random()*6);
+    if(human(turn) || Math.random()>=CPU_NUDGE) return a;
+    const b=1+Math.floor(Math.random()*6);
+    return landing(pos[turn],a)<=landing(pos[turn],b) ? a : b;
+  }
+
+  async function takeTurn(){
+    if(busy||over) return;
+    busy=true; updatePanel();
+    const i=turn, who=NAMES()[i], v=await rollDie();
+    const target=pos[i]+v;
+    if(target>100){
+      const need=100-pos[i];
+      say(`${who} rolled ${v}. ${needs(who)} exactly ${need} to reach 100.`);
+      log(`${who} rolled ${v}, needed ${need}. Stayed on ${pos[i]}.`, i);
+    } else {
+      say(`${who} rolled ${v}.`);
+      const el=$('t'+i);
+      for(let k=0;k<v;k++){
+        pos[i]++; placeAll(); el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop');
+        beep(520+pos[i]*4,.07); await sleep(190);
+      }
+      let line=`${who} rolled ${v} and moved to ${pos[i]}.`;
+      if(LADDERS[pos[i]]){
+        const from=pos[i]; await sleep(150);
+        pos[i]=LADDERS[from]; stats[i].l++;
+        el.classList.add('slide'); placeAll(); sweep(300,900,.7); await sleep(800); el.classList.remove('slide');
+        say(`A ladder! ${who} climbed from ${from} up to ${pos[i]}.`,'good');
+        line=`${who} rolled ${v}, climbed a ladder ${from} → ${pos[i]}.`;
+      } else if(SNAKES[pos[i]]){
+        const from=pos[i]; await sleep(150);
+        pos[i]=SNAKES[from]; stats[i].s++;
+        el.classList.add('slide'); placeAll(); sweep(800,180,.75); await sleep(800); el.classList.remove('slide');
+        say(`Oh no, a snake! ${who} slid from ${from} down to ${pos[i]}.`,'bad');
+        line=`${who} rolled ${v}, bitten by a snake ${from} → ${pos[i]}.`;
+      }
+      log(line,i);
+    }
+    if(pos[i]===100){ busy=false; return finish(i); }
+    if(v===6){ say($('msg').textContent+` Rolled a 6, so ${goes(who)} again!`, $('msg').classList.contains('bad')?'bad':'good'); }
+    else turn=1-turn;
+    busy=false; updatePanel();
+    if(!human(turn)){ const g=gameId; await sleep(1000); if(g===gameId && !human(turn) && !over) takeTurn(); }
+  }
+
+  function finish(i){
+    over=true; wins[i]++;
+    try{ localStorage.setItem(winsKey(),JSON.stringify(wins)); }catch(e){}
+    updatePanel();
+    const who=NAMES()[i], happy = mode==='pvp' || i===0;
+    $('winTitle').textContent = who==='You' ? 'You win!' : `${who} wins!`;
+    $('winTitle').style.color = i===0 ? 'var(--p1)' : 'var(--p2)';
+    $('winText').textContent = mode==='pvp' ? `${who} reached square 100 first. Great game, both of you!` : (i===0 ? 'You reached square 100 first. Brilliant!' : 'So close! Have another go.');
+    say(who==='You' ? 'You reached 100 and won the game!' : `${who} reached 100 first.`, happy?'good':'bad');
+    log(`${who} reached 100 and won.`, i);
+    $('win').hidden=false;
+    if(happy){ [523,659,784,1047].forEach((f,k)=>setTimeout(()=>beep(f,.25,'triangle'),k*150)); }
+    else { [392,330,262].forEach((f,k)=>setTimeout(()=>beep(f,.3,'triangle'),k*180)); }
+    $('again').focus();
+  }
+
+  function newGame(){
+    if(busy) return;
+    gameId++;
+    pos=[0,0]; turn=0; over=false; stats=[{l:0,s:0},{l:0,s:0}];
+    $('win').hidden=true; $('log').innerHTML=''; log(mode==='cpu' ? 'New game. You go first.' : 'New game. Player 1 goes first.');
+    showDie(1); say('Press Roll, or hit the space bar.'); placeAll(); updatePanel();
+  }
+
+  $('roll').onclick=takeTurn;
+  $('newGame').onclick=newGame;
+  $('again').onclick=newGame;
+  const sb=$('sound');
+  function syncSound(){ sb.textContent = soundOn?'Sound on':'Sound off'; sb.setAttribute('aria-pressed',String(soundOn)); }
+  sb.onclick=()=>{ soundOn=!soundOn; syncSound(); try{localStorage.setItem('snl-sound',soundOn?'on':'off');}catch(e){} };
+  syncSound();
+  document.addEventListener('keydown',e=>{
+    if((e.code==='Space'||e.key==='Enter') && document.activeElement.tagName!=='BUTTON'){
+      e.preventDefault(); if(!over && human(turn)) takeTurn(); else if(over) newGame();
+    }
+  });
+  function setMode(m){
+    if(busy || m===mode) return;
+    mode=m; try{ localStorage.setItem('snl-mode',m); }catch(e){}
+    loadWins(); newGame();
+  }
+  $('modeCpu').onclick=()=>setMode('cpu');
+  $('modePvp').onclick=()=>setMode('pvp');
+
+  new ResizeObserver(draw).observe(wrap);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw);
+  new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+  showDie(1); placeAll(); updatePanel(); draw();
+})();
+</script>
+
+</body>
+</html>

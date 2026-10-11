@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f8b8d">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}
+.homeLink{position:fixed;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:50;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;background:rgba(20,30,40,.82);color:#fff;font:800 14px/1 system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.homeLink:focus-visible{outline:3px solid #ffc23d;outline-offset:2px}
+body{padding-bottom:64px!important}</style>
+<title>Quiz Quest</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap">
+<style>
+/* Layout: three screens in one column — level map (5×2 tiles), question card with big answer buttons, results. Teal ground, sunny-yellow reward colour. */
+:root{
+  --bg:#e3f4f1; --card:#ffffff; --ink:#173a3a; --muted:#56706f; --line:#c3dfda;
+  --accent:#0f8b8d; --accentInk:#ffffff; --sun:#ffc23d; --sunInk:#5a3d00;
+  --good:#23945a; --goodBg:#dcf5e6; --bad:#d4413c; --badBg:#fde2e0; --lock:#c9d8d5;
+  --display:"Lilita One","Baloo 2","Arial Rounded MT Bold",system-ui,sans-serif;
+  --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1f20; --card:#172d2e; --ink:#e6f4f2; --muted:#9dbbb8; --line:#28494a;
+  --accent:#3cc3c4; --accentInk:#06201f; --sun:#ffcb57; --sunInk:#3a2700;
+  --good:#5fd69a; --goodBg:#163a29; --bad:#ff7d77; --badBg:#41201e; --lock:#2b4344;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0f1f20; --card:#172d2e; --ink:#e6f4f2; --muted:#9dbbb8; --line:#28494a;
+  --accent:#3cc3c4; --accentInk:#06201f; --sun:#ffcb57; --sunInk:#3a2700;
+  --good:#5fd69a; --goodBg:#163a29; --bad:#ff7d77; --badBg:#41201e; --lock:#2b4344;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);padding:22px 16px 40px}
+main{max-width:640px;margin:0 auto}
+button{font-family:var(--body);cursor:pointer}
+button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+h1{font-family:var(--display);font-weight:400;font-size:2.6rem;line-height:1;margin:0;color:var(--accent);letter-spacing:.5px}
+.total{display:flex;align-items:center;gap:8px;background:var(--card);border:2px solid var(--line);border-radius:999px;padding:6px 14px 6px 8px;font-weight:900;font-variant-numeric:tabular-nums}
+.total svg{width:26px;height:26px}
+
+/* map */
+.intro{margin:0 0 16px;color:var(--muted);font-weight:700;line-height:1.5}
+.levels{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.levels{gap:8px}.lvl{padding:8px 2px;border-radius:14px}.lvl .t{display:none}.lvl .n{font-size:1.6rem}.lvl .st svg{width:12px;height:12px}.lvl .n svg{width:24px;height:24px}}
+.lvl{background:var(--card);border:3px solid var(--line);border-radius:18px;padding:12px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink)}
+.lvl .n{font-family:var(--display);font-size:2.2rem;line-height:1;color:var(--accent)}
+.lvl .t{font-size:.78rem;font-weight:800;color:var(--muted);text-align:center;line-height:1.2;min-height:2.4em}
+.lvl .st{display:flex;gap:2px}
+.lvl .st svg{width:18px;height:18px}
+.lvl.next{border-color:var(--accent);box-shadow:0 5px 0 var(--accent)}
+.lvl.locked{background:transparent;border-style:dashed;cursor:not-allowed}
+.lvl.locked .n{color:var(--lock)}
+.lvl:not(.locked):hover{transform:translateY(-2px)}
+.legend{margin:18px 0 0;font-size:.88rem;color:var(--muted);font-weight:700;line-height:1.5}
+.reset{margin-top:14px;background:none;border:0;color:var(--muted);font-weight:800;text-decoration:underline;padding:4px 0}
+.confirm{margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-weight:800}
+.confirm button{border-radius:10px;padding:6px 14px;font-weight:800;border:2px solid var(--line);background:var(--card);color:var(--ink)}
+.confirm .yes{background:var(--bad);border-color:var(--bad);color:#fff}
+
+/* quiz */
+.qhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.back{border:2px solid var(--line);background:var(--card);color:var(--ink);font-weight:800;border-radius:12px;padding:8px 12px}
+.lvlTag{font-family:var(--display);font-size:1.4rem;color:var(--accent)}
+.dots{display:flex;gap:6px;margin-bottom:14px}
+.dots i{flex:1;height:10px;border-radius:5px;background:var(--line)}
+.dots i.good{background:var(--good)} .dots i.bad{background:var(--bad)} .dots i.now{background:var(--sun)}
+.qcard{background:var(--card);border:3px solid var(--line);border-radius:22px;padding:22px 18px;display:flex;flex-direction:column;gap:16px}
+.qmeta{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.qnum{font-weight:900;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.speak{border:2px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:6px 12px;font-weight:800;font-size:.85rem;display:flex;gap:6px;align-items:center}
+.speak svg{width:18px;height:18px}
+.question{font-family:var(--display);font-weight:400;font-size:clamp(1.5rem,5vw,2rem);line-height:1.2;margin:0;text-wrap:balance;letter-spacing:.3px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:460px){.opts{grid-template-columns:1fr}}
+.opt{display:flex;align-items:center;gap:12px;text-align:left;font-size:1.15rem;font-weight:800;padding:14px;border-radius:16px;border:3px solid var(--line);background:var(--card);color:var(--ink);min-height:64px}
+.opt .k{flex:none;width:34px;height:34px;border-radius:10px;background:var(--bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:1.15rem}
+.opt:not(:disabled):hover{border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--good);background:var(--goodBg)}
+.opt.right .k{background:var(--good);color:#fff}
+.opt.wrong{border-color:var(--bad);background:var(--badBg)}
+.opt.wrong .k{background:var(--bad);color:#fff}
+.opt.dim{opacity:.5}
+.feedback{border-radius:16px;padding:14px 16px;font-weight:700;line-height:1.5}
+.feedback strong{display:block;font-family:var(--display);font-weight:400;font-size:1.35rem;letter-spacing:.3px}
+.feedback.good{background:var(--goodBg)} .feedback.good strong{color:var(--good)}
+.feedback.bad{background:var(--badBg)} .feedback.bad strong{color:var(--bad)}
+.next{align-self:flex-end;font-family:var(--display);font-size:1.3rem;padding:10px 26px;border-radius:999px;border:0;background:var(--accent);color:var(--accentInk);box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 60%,#000)}
+.next:active{transform:translateY(3px);box-shadow:none}
+
+/* results */
+.result{background:var(--card);border:3px solid var(--line);border-radius:22px;padding:28px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+.bigStars{display:flex;gap:10px}
+.bigStars svg{width:64px;height:64px}
+.bigStars svg.pop{animation:pop .45s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes pop{from{transform:scale(0) rotate(-40deg)}to{transform:scale(1) rotate(0)}}
+.result h2{font-family:var(--display);font-weight:400;font-size:2.4rem;margin:0;line-height:1.05;color:var(--accent)}
+.score{font-size:1.25rem;font-weight:900;margin:0}
+.result p{margin:0;color:var(--muted);font-weight:700;max-width:40ch;line-height:1.5}
+.rbtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.rbtns button{font-weight:900;font-size:1rem;padding:12px 20px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:var(--ink)}
+.rbtns button.primary{background:var(--accent);border-color:var(--accent);color:var(--accentInk)}
+.rbtns button[hidden]{display:none}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<main>
+  <div class="top">
+    <h1>Quiz Quest</h1>
+    <div class="total" aria-label="Total stars"><svg viewBox="0 0 24 24"><path fill="var(--sun)" stroke="var(--sunInk)" stroke-width="1.2" stroke-linejoin="round" d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg><span id="totalStars">0</span> / 75</div>
+  </div>
+
+  <!-- MAP -->
+  <section id="mapScreen">
+    <p class="intro">Pick a level. Get at least 6 answers right to unlock the next one. Can you collect all 75 stars?</p>
+    <div class="levels" id="levels"></div>
+    <p class="legend">1 star for 6 or 7 right · 2 stars for 8 or 9 · 3 stars for a perfect 10</p>
+    <button class="reset" id="resetBtn">Start over from Level 1</button>
+    <div class="confirm" id="confirmBox" hidden>Clear all stars? <button class="yes" id="resetYes">Yes, clear</button><button id="resetNo">Keep them</button></div>
+  </section>
+
+  <!-- QUIZ -->
+  <section id="quizScreen" hidden>
+    <div class="qhead">
+      <button class="back" id="backBtn">← Levels</button>
+      <span class="lvlTag" id="lvlTag">Level 1</span>
+    </div>
+    <div class="dots" id="dots"></div>
+    <div class="qcard">
+      <div class="qmeta">
+        <span class="qnum" id="qnum">Question 1 of 10</span>
+        <button class="speak" id="speakBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>Read aloud</button>
+      </div>
+      <h2 class="question" id="question"></h2>
+      <div class="opts" id="opts"></div>
+      <div class="feedback" id="feedback" hidden></div>
+      <button class="next" id="nextBtn" hidden>Next</button>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section id="resultScreen" hidden>
+    <div class="result">
+      <div class="bigStars" id="bigStars"></div>
+      <h2 id="rTitle">Well done!</h2>
+      <p class="score" id="rScore">8 out of 10</p>
+      <p id="rText"></p>
+      <div class="rbtns">
+        <button class="primary" id="rNext">Next level</button>
+        <button id="rRetry">Try again</button>
+        <button id="rMap">All levels</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+/* Each question: [question, [correct, wrong, wrong, wrong], fun fact]. Options are shuffled when shown. */
+const LEVELS=[
+ {name:"Warm Up", q:[
+  ["How many legs does a spider have?",["8","6","10","4"],"Spiders have 8 legs. Insects like ants have only 6."],
+  ["What colour do you get when you mix blue and yellow?",["Green","Purple","Orange","Pink"],"Blue and yellow paint mix to make green."],
+  ["Which animal says \"moo\"?",["Cow","Dog","Duck","Cat"],"Cows moo to call their calves and friends."],
+  ["What is 5 + 3?",["8","7","9","6"],"5 + 3 = 8."],
+  ["How many days are there in a week?",["7","5","10","6"],"Monday to Sunday makes 7 days."],
+  ["What do bees make?",["Honey","Milk","Silk","Jam"],"Bees turn the nectar from flowers into honey."],
+  ["Which of these is the biggest?",["Elephant","Cat","Mouse","Dog"],"Elephants are the biggest animals that live on land."],
+  ["Which shape has 3 sides?",["Triangle","Square","Circle","Rectangle"],"Tri means three, so a triangle has 3 sides."],
+  ["Which season is usually the coldest?",["Winter","Summer","Spring","Autumn"],"Winter is the coldest season of the year."],
+  ["What is 10 − 4?",["6","5","7","4"],"10 − 4 = 6."]
+ ]},
+ {name:"Easy Peasy", q:[
+  ["How many months are there in a year?",["12","10","7","24"],"January to December makes 12 months."],
+  ["What is a baby dog called?",["Puppy","Kitten","Calf","Cub"],"A baby cat is a kitten, and a baby dog is a puppy."],
+  ["Which planet do we live on?",["Earth","Mars","Jupiter","Venus"],"Earth is the only planet we know of that has living things."],
+  ["What is 6 × 2?",["12","8","14","10"],"6 × 2 means 6 + 6, which is 12."],
+  ["What do plants need from the Sun to make their food?",["Light","Rain","Wind","Sand"],"Plants use sunlight to make food in their leaves."],
+  ["What is the opposite of \"hot\"?",["Cold","Warm","Wet","Big"],"Hot and cold are opposites."],
+  ["How many sides does a square have?",["4","3","5","6"],"A square has 4 sides, all the same length."],
+  ["Which animal is called the king of the jungle?",["Lion","Tiger","Bear","Monkey"],"Lions are called the king of the jungle, even though they mostly live in grasslands."],
+  ["What do we call frozen water?",["Ice","Steam","Rain","Cloud"],"Water freezes into ice at 0 °C."],
+  ["What is 15 + 5?",["20","25","18","10"],"15 + 5 = 20."]
+ ]},
+ {name:"Getting Going", q:[
+  ["Which is the largest ocean in the world?",["Pacific Ocean","Indian Ocean","Atlantic Ocean","Arctic Ocean"],"The Pacific Ocean is so big that all the land on Earth could fit inside it."],
+  ["What is the national animal of India?",["Tiger","Lion","Elephant","Peacock"],"The Bengal tiger is India's national animal."],
+  ["How many hours are there in one day?",["24","12","60","10"],"One whole day and night lasts 24 hours."],
+  ["What is 7 × 3?",["21","24","18","27"],"7 × 3 = 21."],
+  ["Which of these birds cannot fly?",["Penguin","Parrot","Eagle","Sparrow"],"Penguins can't fly, but they are amazing swimmers."],
+  ["Which gas do we need to breathe in to stay alive?",["Oxygen","Smoke","Steam","Helium"],"Our lungs take oxygen from the air we breathe."],
+  ["How many colours are there in a rainbow?",["7","5","3","10"],"Red, orange, yellow, green, blue, indigo and violet."],
+  ["Which of these is a fruit?",["Mango","Carrot","Potato","Onion"],"The mango is India's national fruit."],
+  ["What does a caterpillar turn into?",["Butterfly","Bee","Spider","Bird"],"A caterpillar makes a chrysalis and comes out as a butterfly."],
+  ["What is 50 − 25?",["25","20","30","35"],"Half of 50 is 25, so 50 − 25 = 25."]
+ ]},
+ {name:"Explorer", q:[
+  ["Which planet is known as the Red Planet?",["Mars","Venus","Saturn","Mercury"],"Mars looks red because of rusty dust on its ground."],
+  ["Which is the fastest land animal?",["Cheetah","Horse","Lion","Deer"],"A cheetah can run faster than a car on a city road."],
+  ["How many minutes are there in an hour?",["60","100","30","24"],"An hour has 60 minutes, and a minute has 60 seconds."],
+  ["What is 9 × 4?",["36","32","40","27"],"9 × 4 = 36."],
+  ["What is the capital city of India?",["New Delhi","Mumbai","Chennai","Kolkata"],"New Delhi is where India's government works."],
+  ["Which part of a plant takes in water from the soil?",["Roots","Leaves","Flowers","Fruits"],"Roots grow under the ground and drink up water."],
+  ["How many continents are there on Earth?",["7","5","9","4"],"Asia, Africa, North America, South America, Antarctica, Europe and Australia."],
+  ["Which of these is a mammal?",["Whale","Shark","Octopus","Crab"],"Whales live in the sea but breathe air and feed their babies milk, like all mammals."],
+  ["What is half of 30?",["15","10","20","12"],"30 split into 2 equal parts is 15 each."],
+  ["What do we use our nose for?",["Smelling","Hearing","Tasting","Seeing"],"Our nose helps us smell, and it also helps us taste food."]
+ ]},
+ {name:"Brain Builder", q:[
+  ["Which is the largest planet in our solar system?",["Jupiter","Earth","Mars","Saturn"],"Jupiter is so big that more than 1,000 Earths could fit inside it."],
+  ["Which is the tallest animal in the world?",["Giraffe","Elephant","Camel","Horse"],"A giraffe's neck alone can be taller than a grown-up person."],
+  ["What is 8 × 7?",["56","54","48","64"],"8 × 7 = 56. A trick: 5, 6, 7, 8 → 56 = 7 × 8!"],
+  ["In which direction does the Sun rise?",["East","West","North","South"],"The Sun rises in the east and sets in the west."],
+  ["What do we call animals that eat only plants?",["Herbivores","Carnivores","Omnivores","Predators"],"Cows, rabbits and elephants are herbivores."],
+  ["Which is the longest river in India?",["Ganga","Yamuna","Kaveri","Narmada"],"The Ganga starts in the Himalayas and flows into the Bay of Bengal."],
+  ["Which tool measures how hot or cold something is?",["Thermometer","Ruler","Clock","Scale"],"A thermometer measures temperature."],
+  ["What is 100 − 37?",["63","73","67","53"],"100 − 37 = 63."],
+  ["Who wrote India's national anthem, \"Jana Gana Mana\"?",["Rabindranath Tagore","Mahatma Gandhi","Jawaharlal Nehru","Subhas Chandra Bose"],"Rabindranath Tagore was also the first Indian to win a Nobel Prize."],
+  ["How many legs does an insect have?",["6","8","4","10"],"All insects, like ants, bees and butterflies, have 6 legs."]
+ ]},
+ {name:"Smart Cookie", q:[
+  ["Which star is closest to Earth?",["The Sun","The North Star","Sirius","The Moon"],"The Sun is a star! It is the closest one to us."],
+  ["What is 12 × 3?",["36","32","39","33"],"12 × 3 = 36."],
+  ["Which is the largest continent?",["Asia","Africa","Europe","Australia"],"Asia is the biggest continent, and India is part of it."],
+  ["What are baby frogs called?",["Tadpoles","Kittens","Chicks","Cubs"],"Tadpoles live in water and slowly grow legs to become frogs."],
+  ["At what temperature does water boil?",["100 °C","50 °C","0 °C","200 °C"],"Water boils at 100 °C and freezes at 0 °C."],
+  ["Which organ pumps blood around your body?",["Heart","Lungs","Brain","Stomach"],"Your heart beats about 100,000 times every day."],
+  ["How many sides does a hexagon have?",["6","5","8","7"],"Honeycomb cells made by bees are hexagons."],
+  ["What is the national bird of India?",["Peacock","Parrot","Eagle","Pigeon"],"Peacocks spread their colourful tail feathers like a fan."],
+  ["What is one quarter of 100?",["25","50","20","40"],"Split 100 into 4 equal parts and each part is 25."],
+  ["Which of these is NOT a planet?",["Moon","Venus","Saturn","Neptune"],"The Moon goes around the Earth, so it is a moon, not a planet."]
+ ]},
+ {name:"Super Thinker", q:[
+  ["Which is the largest animal on Earth?",["Blue whale","Elephant","Giraffe","Great white shark"],"A blue whale can be as long as three buses in a row."],
+  ["What is 144 ÷ 12?",["12","14","10","11"],"12 × 12 = 144, so 144 ÷ 12 = 12."],
+  ["Which is the hardest natural material?",["Diamond","Gold","Iron","Rock"],"Diamonds are so hard that they are used to cut other materials."],
+  ["Who was the first person to walk on the Moon?",["Neil Armstrong","Rakesh Sharma","Kalpana Chawla","Yuri Gagarin"],"Neil Armstrong stepped onto the Moon in 1969."],
+  ["How many players does a cricket team have on the field?",["11","9","6","15"],"Each cricket team has 11 players on the field."],
+  ["Which planet is famous for its bright rings?",["Saturn","Mars","Mercury","Earth"],"Saturn's rings are made of ice and rock."],
+  ["Which gas do plants take in from the air?",["Carbon dioxide","Oxygen","Helium","Smoke"],"Plants take in carbon dioxide and give out the oxygen we breathe."],
+  ["What number is the Roman numeral X?",["10","5","100","1"],"I is 1, V is 5 and X is 10."],
+  ["How many days are there in a leap year?",["366","365","360","364"],"A leap year comes every 4 years and has an extra day, 29 February."],
+  ["What is 25 + 25 + 25?",["75","50","100","65"],"25 three times is 75, the same as three quarters of 100."]
+ ]},
+ {name:"World Wanderer", q:[
+  ["In which country are the Great Pyramids of Giza?",["Egypt","India","China","Mexico"],"The pyramids were built in Egypt more than 4,000 years ago."],
+  ["What is 15 × 4?",["60","45","55","64"],"15 × 4 = 60, the number of minutes in an hour!"],
+  ["What do we call a scientist who studies stars and planets?",["Astronomer","Doctor","Geologist","Chemist"],"Astronomers use telescopes to look deep into space."],
+  ["Which blood cells help fight germs?",["White blood cells","Red blood cells","Skin cells","Hair cells"],"White blood cells are like soldiers that protect your body."],
+  ["Which is the largest hot desert in the world?",["Sahara","Thar","Gobi","Kalahari"],"The Sahara in Africa is almost as big as the whole of China."],
+  ["How many centimetres are there in 1 metre?",["100","10","1000","50"],"1 metre = 100 centimetres."],
+  ["In which Indian city is the Taj Mahal?",["Agra","Jaipur","Delhi","Hyderabad"],"The Taj Mahal is made of white marble and stands beside the Yamuna river."],
+  ["Which planet is closest to the Sun?",["Mercury","Venus","Earth","Mars"],"Mercury goes around the Sun in just 88 days."],
+  ["What is 1000 − 1?",["999","900","990","1001"],"One less than 1000 is 999."],
+  ["Which of these animals is a reptile?",["Crocodile","Frog","Dolphin","Penguin"],"Reptiles like crocodiles, snakes and lizards have scaly skin."]
+ ]},
+ {name:"Quiz Champ", q:[
+  ["Who is called the Father of the Nation in India?",["Mahatma Gandhi","Jawaharlal Nehru","B. R. Ambedkar","Sardar Patel"],"Gandhiji's birthday, 2 October, is celebrated as Gandhi Jayanti."],
+  ["What is 6 × 6 + 4?",["40","36","60","48"],"First 6 × 6 = 36, then 36 + 4 = 40."],
+  ["How many teeth does a grown-up usually have?",["32","20","28","40"],"Children have 20 milk teeth, and adults usually have 32."],
+  ["Which is the tallest mountain in the world?",["Mount Everest","K2","Kanchenjunga","Mount Kilimanjaro"],"Mount Everest is in the Himalayas, on the border of Nepal and China."],
+  ["Which metal is a liquid at room temperature?",["Mercury","Iron","Gold","Copper"],"Mercury is a shiny metal that flows like water."],
+  ["You eat 3 slices of a pizza cut into 8 slices. What fraction is left?",["5/8","3/8","1/2","5/3"],"8 − 3 = 5 slices are left, so 5/8 of the pizza."],
+  ["How many faces does a cube have?",["6","4","8","12"],"A dice is a cube. It has 6 faces numbered 1 to 6."],
+  ["Which ocean lies to the south of India?",["Indian Ocean","Pacific Ocean","Atlantic Ocean","Arctic Ocean"],"It is the only ocean named after a country: India!"],
+  ["Which is the longest bone in the human body?",["Thigh bone","Arm bone","Rib","Backbone"],"The thigh bone is called the femur. It is very strong."],
+  ["What is 7 × 8 − 6?",["50","56","48","42"],"First 7 × 8 = 56, then 56 − 6 = 50."]
+ ]},
+ {name:"Grand Master", q:[
+  ["How long does the Earth take to go once around the Sun?",["About 365 days","About 30 days","About 24 hours","About 100 days"],"That is why one year has about 365 days."],
+  ["Which is the hottest planet in our solar system?",["Venus","Mercury","Mars","Jupiter"],"Venus is hotter than Mercury because its thick clouds trap the heat."],
+  ["What is 125 ÷ 5?",["25","20","30","15"],"5 × 25 = 125, so 125 ÷ 5 = 25."],
+  ["Who was the first Prime Minister of India?",["Jawaharlal Nehru","Mahatma Gandhi","Indira Gandhi","Lal Bahadur Shastri"],"Children's Day, 14 November, is Nehru's birthday."],
+  ["What do we call animals that are awake at night?",["Nocturnal","Herbivores","Aquatic","Migratory"],"Owls, bats and many cats are nocturnal."],
+  ["What is it called when water turns into vapour in the heat?",["Evaporation","Freezing","Melting","Raining"],"Evaporation is how wet clothes dry on a sunny day."],
+  ["Which country gifted the Statue of Liberty to the USA?",["France","England","Spain","Italy"],"France gave the statue to the USA in 1886 as a sign of friendship."],
+  ["What is the coloured part of your eye called?",["Iris","Pupil","Eyelash","Eyelid"],"The iris can be brown, black, blue, green or grey."],
+  ["If today is Monday, what day will it be 10 days from now?",["Thursday","Wednesday","Friday","Monday"],"7 days later is Monday again, then 3 more days makes Thursday."],
+  ["Which is the smallest planet in our solar system?",["Mercury","Mars","Earth","Venus"],"Mercury is only a little bigger than our Moon."]
+ ]},
+ {name:"Nature Detective", q:[
+  ["What is a baby cow called?",["Calf","Foal","Lamb","Kid"],"A baby horse is a foal, a baby sheep is a lamb and a baby goat is a kid."],
+  ["How many wheels does a tricycle have?",["3","2","4","1"],"Tri means three, just like in triangle."],
+  ["What is 11 × 2?",["22","21","12","24"],"11 + 11 = 22."],
+  ["What gives leaves their green colour?",["Chlorophyll","Water","Sunlight","Soil"],"Chlorophyll is a green material that helps leaves catch sunlight."],
+  ["Which animal is called the \"ship of the desert\"?",["Camel","Horse","Elephant","Donkey"],"Camels can walk for days in the hot desert without drinking water."],
+  ["How many letters are there in the English alphabet?",["26","24","28","25"],"From A to Z there are 26 letters."],
+  ["What is the opposite of \"ancient\"?",["Modern","Old","Huge","Slow"],"Ancient means very old, and modern means new."],
+  ["What is 45 + 36?",["81","71","79","91"],"45 + 36 = 81."],
+  ["Which festival is called the festival of lights?",["Diwali","Holi","Pongal","Onam"],"On Diwali, people light diyas and lamps all around their homes."],
+  ["Which of these letters is a vowel?",["E","B","K","T"],"The vowels are A, E, I, O and U."]
+ ]},
+ {name:"Number Ninja", q:[
+  ["What is 9 × 9?",["81","72","99","90"],"9 × 9 = 81."],
+  ["What is 3/4 of 20?",["15","5","10","12"],"One quarter of 20 is 5, so three quarters is 15."],
+  ["What comes next: 2, 4, 8, 16, …?",["32","20","24","18"],"Each number is double the one before it."],
+  ["How many grams are there in 1 kilogram?",["1000","100","10","500"],"Kilo means one thousand."],
+  ["What is 300 + 450?",["750","700","650","800"],"300 + 450 = 750."],
+  ["How many sides does an octagon have?",["8","6","10","7"],"An octopus has 8 arms and an octagon has 8 sides."],
+  ["Which of these numbers is even?",["44","13","27","51"],"Even numbers end in 0, 2, 4, 6 or 8."],
+  ["What is 63 ÷ 7?",["9","8","7","6"],"7 × 9 = 63, so 63 ÷ 7 = 9."],
+  ["How many zeros are there in one thousand?",["3","2","4","1"],"One thousand is written 1000."],
+  ["How many degrees are there in a right angle?",["90","180","45","360"],"The corner of a book page is a right angle."]
+ ]},
+ {name:"Animal Kingdom", q:[
+  ["Which animal sleeps hanging upside down?",["Bat","Owl","Monkey","Squirrel"],"Bats are the only mammals that can truly fly."],
+  ["How many hearts does an octopus have?",["3","1","2","8"],"An octopus has 3 hearts and blue blood!"],
+  ["What is a group of fish swimming together called?",["A school","A herd","A flock","A pack"],"Fish swim in schools to stay safe from bigger fish."],
+  ["Which animal can change its colour to hide?",["Chameleon","Rabbit","Zebra","Parrot"],"Chameleons also have eyes that can look in two directions at once."],
+  ["What do pandas mostly eat?",["Bamboo","Fish","Grass","Bananas"],"A panda can spend about half the day eating bamboo."],
+  ["Which is the largest bird in the world?",["Ostrich","Eagle","Peacock","Swan"],"Ostriches can't fly, but they can run very fast."],
+  ["Which animal carries its baby in a pouch?",["Kangaroo","Bear","Deer","Gorilla"],"A baby kangaroo is called a joey."],
+  ["What do fish use to breathe under water?",["Gills","Lungs","Fins","Scales"],"Gills take oxygen out of the water."],
+  ["Which insect can make its own light at night?",["Firefly","Ant","Mosquito","Bee"],"Fireflies glow to talk to each other."],
+  ["What do spiders use to make their webs?",["Silk","Hair","Leaves","Mud"],"Spider silk is very strong for its size."]
+ ]},
+ {name:"Space Cadet", q:[
+  ["What was the name of India's mission that landed near the Moon's south pole in 2023?",["Chandrayaan-3","Mangalyaan","Aditya-L1","Gaganyaan"],"India was the first country to land near the Moon's south pole."],
+  ["What do we call a group of stars that makes a picture in the sky?",["Constellation","Galaxy","Comet","Planet"],"The Big Dipper and Orion are famous constellations."],
+  ["How many planets are there in our solar system?",["8","9","7","10"],"Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus and Neptune."],
+  ["Which planet is farthest from the Sun?",["Neptune","Saturn","Mars","Jupiter"],"Neptune is very cold and has the fastest winds of any planet."],
+  ["What pulls things down to the ground when you drop them?",["Gravity","Wind","Magnets","Air"],"Gravity also keeps the Moon going around the Earth."],
+  ["What is the name of our galaxy?",["Milky Way","Andromeda","Solar System","Big Dipper"],"Our galaxy has billions of stars, and the Sun is one of them."],
+  ["About how long does the Moon take to go around the Earth?",["About 1 month","About 1 day","About 1 week","About 1 year"],"It takes about 27 days, which is close to one month."],
+  ["Who was the first Indian to travel to space?",["Rakesh Sharma","Kalpana Chawla","Sunita Williams","A. P. J. Abdul Kalam"],"Rakesh Sharma flew to space in 1984."],
+  ["Why do we have day and night?",["The Earth spins around","The Sun switches off","The Moon blocks the Sun","Clouds cover the sky"],"The side of Earth facing the Sun has day, and the other side has night."],
+  ["What is a shooting star really?",["A space rock burning up","A falling star","A tiny planet","A firefly in the sky"],"It is a meteor: a small rock that glows as it rushes through our air."]
+ ]},
+ {name:"Body Boss", q:[
+  ["How many bones does a grown-up human body have?",["206","100","300","56"],"Babies are born with about 300 bones, and some join together as they grow."],
+  ["Which organ do we use to think?",["Brain","Heart","Stomach","Lungs"],"Your brain controls everything your body does."],
+  ["What do our lungs help us do?",["Breathe","Eat","See","Walk"],"Lungs take in oxygen and push out carbon dioxide."],
+  ["Which is the largest organ of the human body?",["Skin","Heart","Liver","Brain"],"Your skin covers and protects your whole body."],
+  ["How many chambers does the human heart have?",["4","2","3","6"],"The heart has 2 upper and 2 lower rooms called chambers."],
+  ["Which vitamin does our body make from sunlight?",["Vitamin D","Vitamin C","Vitamin A","Vitamin B"],"Vitamin D helps keep our bones strong."],
+  ["Where is the smallest bone in the body?",["In the ear","In the toe","In the finger","In the nose"],"The stirrup bone in the ear is smaller than a grain of rice."],
+  ["Which tubes carry blood away from the heart?",["Arteries","Nerves","Muscles","Bones"],"Arteries carry blood out, and veins bring it back."],
+  ["How many senses do we usually talk about?",["5","3","4","7"],"Seeing, hearing, smelling, tasting and touching."],
+  ["Which kind of food helps build strong muscles?",["Protein","Sugar","Salt","Oil"],"Dal, eggs, milk, paneer and nuts all have protein."]
+ ]},
+ {name:"India Explorer", q:[
+  ["How many colour bands are on the Indian flag?",["3","2","4","5"],"Saffron, white and green, with a navy blue wheel in the middle."],
+  ["How many spokes does the Ashoka Chakra on our flag have?",["24","12","20","32"],"The Ashoka Chakra has 24 spokes."],
+  ["What is the national flower of India?",["Lotus","Rose","Sunflower","Jasmine"],"The lotus grows in muddy water but stays clean and beautiful."],
+  ["On which date is India's Independence Day?",["15 August","26 January","2 October","14 November"],"India became free on 15 August 1947."],
+  ["On which date is India's Republic Day?",["26 January","15 August","1 May","5 September"],"India's Constitution came into force on 26 January 1950."],
+  ["Which state is called \"God's Own Country\"?",["Kerala","Goa","Punjab","Assam"],"Kerala is famous for its backwaters, beaches and coconut trees."],
+  ["In which city is the Gateway of India?",["Mumbai","Delhi","Chennai","Kolkata"],"The Gateway of India stands by the sea in Mumbai."],
+  ["Which city is called the Pink City?",["Jaipur","Udaipur","Mysuru","Shimla"],"Many buildings in old Jaipur are painted pink."],
+  ["What is India's national song?",["Vande Mataram","Jana Gana Mana","Sare Jahan Se Achha","Ae Mere Watan"],"Jana Gana Mana is the national anthem, and Vande Mataram is the national song."],
+  ["In which Indian state are the Sundarbans, home of tigers that can swim?",["West Bengal","Kerala","Rajasthan","Gujarat"],"The Sundarbans are the largest mangrove forest in the world."]
+ ]},
+ {name:"Word Wizard", q:[
+  ["What is the plural of \"child\"?",["Children","Childs","Childes","Childrens"],"One child, two children."],
+  ["What is the opposite of \"brave\"?",["Cowardly","Strong","Bold","Happy"],"A brave person faces fear, and a cowardly person runs from it."],
+  ["Which of these words is a noun (a naming word)?",["Table","Run","Happy","Quickly"],"Nouns name a person, place, animal or thing."],
+  ["Which word means the same as \"big\"?",["Large","Tiny","Short","Thin"],"Words that mean the same thing are called synonyms."],
+  ["Which word is spelled correctly?",["Beautiful","Beutiful","Beautifull","Butiful"],"B-E-A-U-T-I-F-U-L."],
+  ["What is the past tense of \"go\"?",["Went","Goed","Gone","Going"],"Today I go, yesterday I went."],
+  ["Which of these words is an adjective (a describing word)?",["Blue","Jump","Sing","Slowly"],"Adjectives describe things, like a blue sky."],
+  ["Which word sounds the same as \"sea\" but means something different?",["See","Say","Seat","Sun"],"Words like sea and see are called homophones."],
+  ["How many syllables are in the word \"elephant\"?",["3","2","4","1"],"El-e-phant: clap it out, and you get 3 claps."],
+  ["Which punctuation mark goes at the end of a question?",["?","!",".",","],"A question always ends with a question mark."]
+ ]},
+ {name:"Science Lab", q:[
+  ["What are the three states of matter?",["Solid, liquid, gas","Hot, warm, cold","Big, medium, small","Rock, water, fire"],"Ice is a solid, water is a liquid and steam is a gas."],
+  ["Which of these does a magnet pull?",["Iron nails","Wooden sticks","Paper","Plastic toys"],"Magnets pull things made of iron and steel."],
+  ["What makes a rainbow appear?",["Sunlight shining through raindrops","Paint in the clouds","The Moon","Wind"],"Raindrops split white sunlight into all its colours."],
+  ["Which gas makes up most of the air around us?",["Nitrogen","Oxygen","Carbon dioxide","Helium"],"Air is about 78% nitrogen and about 21% oxygen."],
+  ["Does sound travel faster through water or through air?",["Water","Air","It is the same","Sound can't move in water"],"That is why whales can hear each other from far away."],
+  ["What is the force that slows down a ball rolling on the ground?",["Friction","Gravity","Magnetism","Electricity"],"Friction is why a ball rolls farther on smooth floors than on grass."],
+  ["What do we call animals that eat both plants and meat?",["Omnivores","Herbivores","Carnivores","Insectivores"],"Bears, crows and humans are omnivores."],
+  ["What happens when water vapour cools down?",["It turns into water drops","It turns into fire","It disappears","It turns into salt"],"This is called condensation. It is how clouds form."],
+  ["A seesaw is which kind of simple machine?",["Lever","Wheel","Pulley","Screw"],"A lever helps us lift heavy things more easily."],
+  ["About how long does sunlight take to reach the Earth?",["About 8 minutes","About 8 seconds","About 8 hours","About 8 days"],"Light is the fastest thing there is, but the Sun is very far away."]
+ ]},
+ {name:"Map Master", q:[
+  ["Which is the largest country in the world by area?",["Russia","India","China","USA"],"Russia stretches across both Europe and Asia."],
+  ["Which country has the most people in the world?",["India","China","USA","Brazil"],"India passed China in 2023 to become the country with the most people."],
+  ["On which continent is Kenya?",["Africa","Asia","Europe","South America"],"Kenya is famous for lions, elephants and giraffes in the wild."],
+  ["Which is the coldest continent?",["Antarctica","Europe","Asia","North America"],"Antarctica is covered in thick ice, and penguins live there."],
+  ["What is the capital city of Japan?",["Tokyo","Beijing","Seoul","Bangkok"],"Tokyo is one of the biggest cities in the world."],
+  ["In which city is the Eiffel Tower?",["Paris","London","Rome","New York"],"The Eiffel Tower was built in 1889 and is made of iron."],
+  ["Which country is shaped like a boot?",["Italy","Spain","France","Greece"],"Look at a world map and you will see Italy's boot shape."],
+  ["How many oceans are there on Earth?",["5","3","4","7"],"Pacific, Atlantic, Indian, Southern and Arctic."],
+  ["What is the name of the imaginary line around the middle of the Earth?",["Equator","Horizon","Border","Coastline"],"Places near the equator are hot all year round."],
+  ["In which country do kangaroos live in the wild?",["Australia","India","Brazil","Canada"],"Australia also has koalas and wombats."]
+ ]},
+ {name:"Puzzle Pro", q:[
+  ["What comes next: A, C, E, G, …?",["I","H","J","K"],"Each time, skip one letter: A (b) C (d) E (f) G (h) I."],
+  ["If 3 pencils cost ₹15, how much do 5 pencils cost?",["₹25","₹20","₹30","₹15"],"One pencil costs ₹5, so 5 pencils cost ₹25."],
+  ["What is 7 × 12?",["84","74","82","96"],"7 × 12 = 84."],
+  ["Which is the odd one out?",["Eagle","Dog","Cat","Cow"],"The eagle is a bird. The others are mammals."],
+  ["How many minutes are there in two and a half hours?",["150","120","130","250"],"2 hours = 120 minutes, plus half an hour = 30 minutes. 120 + 30 = 150."],
+  ["Meera is taller than Ravi. Ravi is taller than Sam. Who is the shortest?",["Sam","Ravi","Meera","They are all the same"],"Meera is tallest, then Ravi, then Sam."],
+  ["What is 1/2 + 1/4?",["3/4","2/6","1/6","2/4"],"1/2 is the same as 2/4. And 2/4 + 1/4 = 3/4."],
+  ["How many legs do 3 cows and 2 hens have altogether?",["16","20","10","14"],"3 cows × 4 legs = 12, and 2 hens × 2 legs = 4. 12 + 4 = 16."],
+  ["What time is it 45 minutes after 2:30?",["3:15","3:00","3:30","2:75"],"30 minutes after 2:30 is 3:00, then 15 more makes 3:15."],
+  ["A square has sides of 5 cm. What is the total length all the way around it?",["20 cm","25 cm","10 cm","15 cm"],"4 sides × 5 cm = 20 cm. This is called the perimeter."]
+ ]},
+ {name:"History Hunter", q:[
+  ["Who built the Taj Mahal?",["Shah Jahan","Akbar","Ashoka","Shivaji"],"Shah Jahan built it in memory of his wife Mumtaz Mahal."],
+  ["Harappa and Mohenjo-daro were cities of which old civilisation?",["Indus Valley","Roman","Egyptian","Greek"],"The Indus Valley people built neat cities with drains, over 4,500 years ago."],
+  ["Who was called the \"Missile Man of India\"?",["A. P. J. Abdul Kalam","C. V. Raman","Homi Bhabha","Vikram Sarabhai"],"Dr Kalam was also a much-loved President of India."],
+  ["In which year did India become independent?",["1947","1950","1857","1965"],"India became independent on 15 August 1947."],
+  ["Who is known as the main architect of the Indian Constitution?",["B. R. Ambedkar","Mahatma Gandhi","Jawaharlal Nehru","Sardar Patel"],"Dr Ambedkar led the committee that wrote our Constitution."],
+  ["Which emperor gave up war and spread Buddhism after the Kalinga war?",["Ashoka","Akbar","Babur","Chandragupta"],"The lion on India's national emblem comes from Ashoka's pillar."],
+  ["Who is famous for inventing the telephone?",["Alexander Graham Bell","Thomas Edison","Isaac Newton","Albert Einstein"],"Bell got a patent for the telephone in 1876."],
+  ["Which very long wall was built in ancient China?",["The Great Wall","Hadrian's Wall","The Red Wall","The Stone Wall"],"The Great Wall of China is thousands of kilometres long."],
+  ["What did the Wright brothers make history with?",["The first powered aeroplane flight","The first car","The first train","The first ship"],"Their first flight in 1903 lasted only 12 seconds!"],
+  ["Who was the first woman Prime Minister of India?",["Indira Gandhi","Sarojini Naidu","Pratibha Patil","Sonia Gandhi"],"Indira Gandhi became Prime Minister in 1966."]
+ ]},
+ {name:"Sports Star", q:[
+  ["How many players does a football team have on the field?",["11","9","7","15"],"Football and cricket both have 11 players on each team."],
+  ["How many rings are on the Olympic flag?",["5","4","6","3"],"The 5 rings stand for the continents joining together."],
+  ["In which game do players say \"checkmate\"?",["Chess","Carrom","Ludo","Cricket"],"Chess was invented long ago in India, where it was called chaturanga."],
+  ["Which sport did Sachin Tendulkar play?",["Cricket","Hockey","Football","Tennis"],"Sachin is called the Master Blaster."],
+  ["In cricket, how many runs do you get for hitting the ball over the boundary without it bouncing?",["6","4","2","10"],"If it bounces before crossing the boundary, it is 4 runs."],
+  ["Which sport is played with a shuttlecock?",["Badminton","Tennis","Squash","Volleyball"],"P. V. Sindhu and Saina Nehwal are famous Indian badminton players."],
+  ["Neeraj Chopra won Olympic gold in 2021 in which event?",["Javelin throw","High jump","Running","Wrestling"],"It was India's first Olympic gold in athletics."],
+  ["How often are the Summer Olympics held?",["Every 4 years","Every year","Every 2 years","Every 10 years"],"The Olympics began in ancient Greece."],
+  ["In which sport has India won 8 Olympic gold medals?",["Hockey","Cricket","Kabaddi","Football"],"Major Dhyan Chand was one of India's greatest hockey players."],
+  ["How many players from each team are on the mat in kabaddi?",["7","11","5","9"],"Kabaddi is a fast tag game that started in India."]
+ ]},
+ {name:"Brainiac", q:[
+  ["Which is the only planet in our solar system not named after a god?",["Earth","Mars","Venus","Jupiter"],"The other planets are named after Roman gods."],
+  ["What is the biggest number you can make using the digits 4, 9 and 1 once each?",["941","914","491","149"],"Put the biggest digit first: 9, then 4, then 1."],
+  ["What is H₂O?",["Water","Salt","Air","Sugar"],"H₂O means 2 hydrogen parts and 1 oxygen part make water."],
+  ["Which musical instrument usually has 88 keys?",["Piano","Guitar","Flute","Tabla"],"A piano has 52 white keys and 36 black keys."],
+  ["What is 12 × 12?",["144","124","132","148"],"12 × 12 = 144. This number is also called a gross."],
+  ["How many years are there in a century?",["100","10","1000","50"],"A decade is 10 years, and a century is 100 years."],
+  ["Which is heavier: 1 kg of cotton or 1 kg of iron?",["They weigh the same","Iron","Cotton","It depends on the day"],"Both weigh 1 kg! Iron just takes up much less space."],
+  ["What colour do you get when you mix red and white?",["Pink","Purple","Orange","Brown"],"Adding white to any colour makes it lighter."],
+  ["How many sides does a pentagon have?",["5","6","4","8"],"Penta means five."],
+  ["If you face north and turn right, which way are you facing?",["East","West","South","North"],"Turning right from north takes you to east."]
+ ]},
+ {name:"Genius Zone", q:[
+  ["What is 250 × 4?",["1000","900","1250","800"],"250 + 250 + 250 + 250 = 1000."],
+  ["Which part of a plant makes its food?",["Leaves","Roots","Stem","Flowers"],"Leaves use sunlight, water and air to make food."],
+  ["Which is the smallest continent?",["Australia","Europe","Antarctica","South America"],"Australia is both a country and a continent."],
+  ["Which is the largest state in India by area?",["Rajasthan","Uttar Pradesh","Maharashtra","Madhya Pradesh"],"Rajasthan is home to the Thar Desert."],
+  ["How many days does February have in a normal year?",["28","30","29","31"],"In a leap year, February gets one extra day: 29."],
+  ["What is 11 × 11?",["121","111","122","101"],"11 × 11 = 121."],
+  ["Which planet spins lying on its side?",["Uranus","Mars","Earth","Venus"],"Scientists think something very big crashed into Uranus long ago."],
+  ["What do we call a triangle with all three sides the same length?",["Equilateral","Right-angled","Circle","Rectangle"],"Equi means equal, so all its sides are equal."],
+  ["Which scientist is famous for the story of an apple falling and gravity?",["Isaac Newton","Albert Einstein","C. V. Raman","Galileo"],"Newton explained why things fall to the ground."],
+  ["Which language do the most people in India speak as their first language?",["Hindi","English","Tamil","Bengali"],"India has 22 official languages listed in its Constitution."]
+ ]},
+ {name:"Legend", q:[
+  ["Which is the deepest ocean in the world?",["Pacific Ocean","Atlantic Ocean","Indian Ocean","Arctic Ocean"],"Its deepest point, the Mariana Trench, is deeper than Mount Everest is tall."],
+  ["What is 3 × 3 × 3?",["27","9","18","33"],"3 × 3 = 9, and 9 × 3 = 27."],
+  ["What is the name of the southern tip of mainland India?",["Kanyakumari","Rameswaram","Chennai","Goa"],"At Kanyakumari, three seas meet."],
+  ["What do bees collect from flowers to make honey?",["Nectar","Pollen","Water","Leaves"],"Nectar is a sweet juice inside flowers."],
+  ["Which planet has a giant storm called the Great Red Spot?",["Jupiter","Mars","Saturn","Neptune"],"The Great Red Spot is wider than the whole Earth."],
+  ["Which is the fastest bird when diving?",["Peregrine falcon","Ostrich","Eagle","Parrot"],"A diving peregrine falcon is faster than a racing car."],
+  ["How many hours are there in 3 days?",["72","36","48","60"],"24 × 3 = 72."],
+  ["What is the national aquatic animal of India?",["Ganges river dolphin","Crocodile","Turtle","Whale"],"The Ganges river dolphin is almost blind and finds its way using sound."],
+  ["A train leaves at 9:40 and travels for 50 minutes. When does it arrive?",["10:30","10:20","10:40","9:90"],"20 minutes takes it to 10:00, then 30 more makes 10:30."],
+  ["In which country do giant pandas live in the wild?",["China","India","Japan","Australia"],"Giant pandas live in the mountain forests of China."]
+ ]}
+];
+
+const $=id=>document.getElementById(id);
+const STAR = f=>`<svg viewBox="0 0 24 24"><path fill="${f?'var(--sun)':'var(--lock)'}" stroke="${f?'var(--sunInk)':'var(--lock)'}" stroke-width="1.2" stroke-linejoin="round" d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg>`;
+const PASS=6;
+let best=new Array(LEVELS.length).fill(-1); // best score per level, -1 = never played
+try{ const b=JSON.parse(localStorage.getItem('qq-best')||'null'); if(Array.isArray(b)) b.forEach((v,i)=>{ if(i<best.length && typeof v==='number') best[i]=v; }); }catch(e){}
+const save=()=>{ try{ localStorage.setItem('qq-best',JSON.stringify(best)); }catch(e){} };
+const starsFor=s=> s>=10?3 : s>=8?2 : s>=PASS?1 : 0;
+const unlocked=i=> i===0 || best[i-1]>=PASS;
+
+let L=0, qs=[], qi=0, score=0, results=[];
+
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function show(id){ for(const s of ['mapScreen','quizScreen','resultScreen']) $(s).hidden = s!==id; window.scrollTo(0,0); }
+function updateTotal(){ $('totalStars').textContent = best.reduce((t,s)=>t+starsFor(s),0); }
+
+function renderMap(){
+  const box=$('levels'); box.innerHTML='';
+  const firstOpen = best.findIndex((s,i)=>unlocked(i) && s<PASS);
+  LEVELS.forEach((lv,i)=>{
+    const b=document.createElement('button'); b.className='lvl'; b.id='lvl'+i;
+    const open=unlocked(i), st=starsFor(best[i]);
+    if(!open) b.classList.add('locked');
+    if(i===firstOpen) b.classList.add('next');
+    b.innerHTML=`<span class="n">${open?i+1:'<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--lock)" stroke-width="2.4" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'}</span><span class="t">${lv.name}</span><span class="st">${STAR(st>=1)}${STAR(st>=2)}${STAR(st>=3)}</span>`;
+    b.setAttribute('aria-label', open ? `Level ${i+1}, ${lv.name}, ${st} stars` : `Level ${i+1}, locked`);
+    b.onclick=()=>{ if(open) startLevel(i); };
+    box.appendChild(b);
+  });
+  updateTotal();
+}
+
+function startLevel(i){
+  L=i; qi=0; score=0; results=[];
+  qs = shuffle(LEVELS[i].q).map(([q,opts,fact])=>({q, correct:opts[0], opts:shuffle(opts), fact}));
+  $('lvlTag').textContent=`Level ${i+1} · ${LEVELS[i].name}`;
+  show('quizScreen'); renderQ();
+}
+
+function renderDots(){
+  $('dots').innerHTML = qs.map((_,k)=>`<i class="${k<results.length?(results[k]?'good':'bad'):(k===qi?'now':'')}"></i>`).join('');
+}
+
+function renderQ(){
+  stopSpeech();
+  const Q=qs[qi];
+  $('qnum').textContent=`Question ${qi+1} of 10`;
+  $('question').textContent=Q.q;
+  $('feedback').hidden=true; $('nextBtn').hidden=true;
+  const o=$('opts'); o.innerHTML='';
+  Q.opts.forEach((t,k)=>{
+    const b=document.createElement('button'); b.className='opt'; b.id='opt'+k;
+    b.innerHTML=`<span class="k">${'ABCD'[k]}</span><span></span>`; b.lastChild.textContent=t;
+    b.onclick=()=>answer(k);
+    o.appendChild(b);
+  });
+  renderDots();
+}
+
+const CHEERS=["Correct!","Yes, well done!","Super!","Spot on!","Brilliant!","You got it!"];
+function answer(k){
+  const Q=qs[qi], picked=Q.opts[k], ok=picked===Q.correct;
+  results.push(ok); if(ok) score++;
+  Q.opts.forEach((t,j)=>{
+    const b=$('opt'+j); b.disabled=true;
+    if(t===Q.correct) b.classList.add('right');
+    else if(j===k) b.classList.add('wrong');
+    else b.classList.add('dim');
+  });
+  const f=$('feedback');
+  f.className='feedback '+(ok?'good':'bad');
+  f.innerHTML=`<strong></strong><span></span>`;
+  f.firstChild.textContent = ok ? CHEERS[Math.floor(Math.random()*CHEERS.length)] : `The answer is ${Q.correct}.`;
+  f.lastChild.textContent = Q.fact;
+  f.hidden=false;
+  const n=$('nextBtn'); n.textContent = qi===9 ? 'See my score' : 'Next'; n.hidden=false; n.focus();
+  renderDots();
+  tone(ok);
+}
+
+function finish(){
+  stopSpeech();
+  const prev=best[L]; if(score>prev) best[L]=score; save();
+  const st=starsFor(score), passed=score>=PASS;
+  $('bigStars').innerHTML=[0,1,2].map(k=>STAR(k<st)).join('');
+  [...$('bigStars').children].forEach((s,k)=>{ if(k<st){ s.classList.add('pop'); s.style.animationDelay=(k*.25)+'s'; } });
+  $('rScore').textContent=`${score} out of 10 right`;
+  if(score===10){ $('rTitle').textContent='Perfect score!'; $('rText').textContent='Every single answer was right. You are a superstar!'; }
+  else if(passed){ $('rTitle').textContent='Level complete!'; $('rText').textContent= L<LEVELS.length-1 ? `Level ${L+2} is now open. Want to try again for more stars first?` : 'You finished the very last level. Amazing!'; }
+  else { $('rTitle').textContent='Nice try!'; $('rText').textContent=`You need ${PASS} right answers to open the next level. You can do it, have another go!`; }
+  $('rNext').hidden = !(passed && L<LEVELS.length-1);
+  $('rRetry').classList.toggle('primary', !passed);
+  show('resultScreen');
+  if(passed) fanfare();
+}
+
+/* sound + speech */
+let ac=null;
+function note(f,d,delay){ try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); const t=ac.currentTime+(delay||0), o=ac.createOscillator(), g=ac.createGain(); o.type='triangle'; o.frequency.value=f; g.gain.setValueAtTime(.12,t); g.gain.exponentialRampToValueAtTime(.001,t+d); o.connect(g).connect(ac.destination); o.start(t); o.stop(t+d); }catch(e){} }
+function tone(ok){ if(ok){note(660,.12);note(880,.2,.1);} else {note(300,.18);note(220,.25,.14);} }
+function fanfare(){ [523,659,784,1047].forEach((f,k)=>note(f,.3,k*.14)); }
+const canSpeak = 'speechSynthesis' in window;
+function stopSpeech(){ try{ if(canSpeak) speechSynthesis.cancel(); }catch(e){} }
+function speak(){
+  if(!canSpeak) return;
+  const Q=qs[qi];
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(Q.q+' '+Q.opts.map((t,k)=>'ABCD'[k]+'. '+t+'.').join(' '));
+    u.rate=.9; u.lang='en-IN'; speechSynthesis.speak(u);
+  }catch(e){}
+}
+if(!canSpeak) $('speakBtn').hidden=true;
+
+/* wiring */
+$('speakBtn').onclick=speak;
+$('nextBtn').onclick=()=>{ if(qi<9){ qi++; renderQ(); } else finish(); };
+$('backBtn').onclick=()=>{ stopSpeech(); renderMap(); show('mapScreen'); };
+$('rNext').onclick=()=>startLevel(L+1);
+$('rRetry').onclick=()=>startLevel(L);
+$('rMap').onclick=()=>{ renderMap(); show('mapScreen'); };
+$('resetBtn').onclick=()=>{ $('confirmBox').hidden=false; };
+$('resetNo').onclick=()=>{ $('confirmBox').hidden=true; };
+$('resetYes').onclick=()=>{ best=new Array(LEVELS.length).fill(-1); save(); $('confirmBox').hidden=true; renderMap(); };
+document.addEventListener('keydown',e=>{
+  if($('quizScreen').hidden) return;
+  const k='abcd'.indexOf(e.key.toLowerCase()); const n='1234'.indexOf(e.key);
+  const idx = k>=0?k:n;
+  if(idx>=0 && $('nextBtn').hidden){ $('opt'+idx)?.click(); }
+});
+
+renderMap();
+})();
+</script>
+
+</body>
+</html>
