@@ -10,7 +10,7 @@ Twelve simple browser games for kids. They work on computers, tablets and phones
 | `quiz-quest.html` | Quiz Quest: 25 levels, 250 general knowledge questions for about age 8 |
 | `memory-match.html` | Memory Match: find the pairs, 3 sizes, Top 10 by fewest moves |
 | `word-search.html` | Word Search: 5 topics, 3 difficulty levels |
-| `colour-by-number.html` | Colour by Number: 6 pixel pictures |
+| `colour-by-number.html` | Colour by Number: 18 pixel pictures |
 | `maths-race.html` | Maths Race: 60-second sums for + − × ÷, Top 10 |
 | `spelling-bee.html` | Spelling Bee: 8 levels of read-aloud spelling |
 | `typing-hero.html` | Typing Hero: falling-letter typing practice, Top 10 |

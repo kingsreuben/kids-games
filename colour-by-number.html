@@ -2,16 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script id="gc-update">(function(){var cur="20261012074820";try{fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){if(!j||!j.v||j.v===cur)return;var u=new URL(location.href);if(u.searchParams.get("v")===j.v)return;u.searchParams.set("v",j.v);location.replace(u.toString());}).catch(function(){});}catch(e){}})();</script>
+<script id="gc-update">(function(){var cur="20261012075633";try{fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){if(!j||!j.v||j.v===cur)return;var u=new URL(location.href);if(u.searchParams.get("v")===j.v)return;u.searchParams.set("v",j.v);location.replace(u.toString());}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Colour by Number</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
-<link rel="stylesheet" href="common.css?v=20261012074820">
+<link rel="stylesheet" href="common.css?v=20261012075633">
 <style>
 :root{--accent:#c2255c}
 @media (prefers-color-scheme: dark){:root{--accent:#f06595;--accentInk:#2b0613}}
-.pics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
-@media (max-width:560px){.pics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.pics{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px}
+@media (max-width:760px){.pics{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media (max-width:480px){.pics{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.pic span{font-size:.7rem}}
+.picsHead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.picsHead b{font-family:var(--display);font-size:1.15rem}
+.picsHead span{font-weight:800;color:var(--muted);font-size:.9rem}
 .pic{border:3px solid var(--line);background:var(--card);border-radius:14px;padding:6px;display:flex;flex-direction:column;gap:4px;align-items:center}
 .pic[aria-pressed="true"]{border-color:var(--accent)}
 .pic canvas{width:100%;max-width:72px;aspect-ratio:1/1;image-rendering:pixelated;border-radius:6px}
@@ -33,16 +37,17 @@
 </style>
 </head>
 <body>
-<a class="homeLink" href="./?v=20261012074820">&larr; All games</a>
+<a class="homeLink" href="./?v=20261012075633">&larr; All games</a>
 <div class="page">
   <div class="top"><div><h1>Colour by Number</h1><p class="sub">Pick a colour, then tap or drag over the squares with that number.</p></div></div>
+  <div class="picsHead"><b>Choose a picture</b><span id="doneCount"></span></div>
   <div class="pics" id="pics"></div>
   <div class="palette" id="palette"></div>
   <div class="canvasWrap"><div class="grid" id="grid"></div></div>
   <p class="msg" id="msg"></p>
   <div style="display:flex;justify-content:center;gap:10px"><button class="btn ghost" id="restart">Start this picture again</button></div>
 </div>
-<script src="common.js?v=20261012074820"></script>
+<script src="common.js?v=20261012075633"></script>
 <script>
 (function(){
 const {$, sound, confetti, store} = GC;
@@ -65,9 +70,44 @@ const PICS=[
   '112223322211','111122221111','111114411111','111114411111','111144441111','555555555555']},
  {name:'Sailing boat',pal:['#d0ebff','#1971c2','#ffffff','#e03131','#8d5524','#fcc419'],rows:[
   '111111111661','111115111661','111115311111','111135331111','111335333111','113335333311',
-  '133335333331','111115111111','444444444444','144444444441','222444444222','222222222222']}
+  '133335333331','111115111111','444444444444','144444444441','222444444222','222222222222']},
+ {name:'Sunny day',pal:['#a5d8ff','#fcc419','#ff922b','#ffffff','#51cf66','#f03e3e'],rows:[
+  '131113111111','112221111111','322222311441','122222114444','322222314444','112221111441',
+  '131113111111','111111111111','161116111611','555555555555','555555555555','555555555555']},
+ {name:'Heart',pal:['#fff0f6','#f03e3e','#a61e4d','#ffffff'],rows:[
+  '111111111111','112211112211','124221122221','242222222223','222222222223','122222222231',
+  '112222222311','111222223111','111122231111','111112311111','111111111111','111111111111']},
+ {name:'Ice cream',pal:['#e7f5ff','#e8a33d','#9c5b1a','#f783ac','#e03131','#ffffff'],rows:[
+  '111111511111','111115511111','111444444111','114464446411','114444444411','146444464441',
+  '144444444441','112222222211','111232322111','111123221111','111112311111','111111211111']},
+ {name:'Owl',pal:['#1c2a4a','#8d5524','#e9c46a','#ffffff','#212529','#ff922b'],rows:[
+  '111111111111','121111111121','122222222221','124442244421','124542245421','124442244421',
+  '122226622221','122333333221','123333333321','122333333221','112222222211','111611116111']},
+ {name:'Car',pal:['#a5d8ff','#e03131','#e7f5ff','#343a40','#868e96','#ffd43b'],rows:[
+  '111111111661','111111111661','111111111111','111222222111','112233233211','122233233221',
+  '622222222222','222222222222','224422224422','554455554455','555555555555','555555555555']},
+ {name:'Butterfly',pal:['#ebfbee','#9775fa','#f783ac','#343a40','#ffd43b'],rows:[
+  '111141141111','122211112221','233321123332','235324423532','233324423332','123324423321',
+  '112224422211','122324423221','235324423532','233321123332','122211112221','111111111111']},
+ {name:'Cat',pal:['#fff4e6','#ff922b','#ffffff','#40c057','#212529','#f783ac'],rows:[
+  '121111111121','126211112621','122222222221','122222222221','124522225421','122222222221',
+  '522226622225','123335533321','523333333325','122333333221','112222222211','111111111111']},
+ {name:'Rainbow',pal:['#e7f5ff','#f03e3e','#ff922b','#fcc419','#40c057','#4dabf7'],rows:[
+  '111111111111','111222222111','112333333211','123344443321','234455554432','234561165432',
+  '234561165432','234561165432','234561165432','234561165432','111111111111','111111111111']},
+ {name:'Mushroom',pal:['#ebfbee','#e03131','#ffffff','#f1d3a8','#51cf66'],rows:[
+  '111111111111','111122221111','112232223211','122222222221','123222232221','222222222222',
+  '111144441111','111144441111','111144441111','111144441111','555555555555','555555555555']},
+ {name:'Snowman',pal:['#d0ebff','#ffffff','#212529','#ff922b','#e03131'],rows:[
+  '111133331111','111133331111','113333333311','111222222111','111232232111','111224422111',
+  '111222222111','115555555111','112222522211','122223222221','122222222221','222223222222']},
+ {name:'Turtle',pal:['#c5f6fa','#2f9e44','#8ce99a','#a9e34b','#212529','#ffe8cc'],rows:[
+  '111111111111','111111111111','111122221111','111233332111','112332233244','123222232254',
+  '122222222211','114411114411','666666666666','666666666666','666666666666','666666666666']},
+ {name:'Cupcake',pal:['#fff9db','#faa2c1','#74c0fc','#e03131','#1c7ed6','#fcc419'],rows:[
+  '111111411111','111114411111','111222222111','112262226211','122222622221','126222222621',
+  '122222222221','113535353511','113535353511','111353535311','111353535311','111111111111']}
 ];
-const NAMES=['Sky','','','','',''];
 let pi=0, picked=1, painted=[], down=false;
 let doneSet=new Set(store.get('cbn-done',[]));
 
@@ -77,7 +117,7 @@ function thumb(p,full){
   return c;
 }
 function renderPics(){
-  $('pics').innerHTML='';
+  $('pics').innerHTML=''; $('doneCount').textContent=`${PICS.filter(p=>doneSet.has(p.name)).length} of ${PICS.length} finished`;
   PICS.forEach((p,i)=>{ const b=document.createElement('button'); b.className='pic'; b.setAttribute('aria-pressed',String(i===pi));
     b.appendChild(thumb(p,doneSet.has(p.name))); const s=document.createElement('span'); s.innerHTML=doneSet.has(p.name)?`<span class="tick">✓</span> ${p.name}`:p.name; b.appendChild(s);
     b.onclick=()=>{ pi=i; load(); }; $('pics').appendChild(b); });
@@ -102,7 +142,7 @@ function left(k){ const n=nums(); let c=0; for(let i=0;i<144;i++) if(+n[i]===k&&
 function renderPalette(){
   const p=PICS[pi]; $('palette').innerHTML='';
   p.pal.forEach((col,k)=>{ const b=document.createElement('button'); b.className='sw'+(left(k+1)===0?' full':''); b.setAttribute('aria-pressed',String(picked===k+1));
-    const lightText=['#1c2a4a','#212529','#1971c2','#2b8a3e','#8d5524','#a0522d','#e03131','#f03e3e','#2f9e44','#c2255c'].includes(col);
+    const h=col.slice(1), lum=(0.299*parseInt(h.slice(0,2),16)+0.587*parseInt(h.slice(2,4),16)+0.114*parseInt(h.slice(4,6),16))/255, lightText=lum<0.6;
     b.innerHTML=`<i style="background:${col};color:${lightText?'#fff':'#222'}">${k+1}</i><small>${left(k+1)} left</small>`;
     b.setAttribute('aria-label',`Colour ${k+1}, ${left(k+1)} squares left`);
     b.onclick=()=>{ picked=k+1; sound.tap(); renderPalette(); paintAll(); }; $('palette').appendChild(b); });
