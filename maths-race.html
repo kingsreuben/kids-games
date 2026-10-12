@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script id="gc-update">(function(){var cur="20261012074820";try{fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){if(!j||!j.v||j.v===cur)return;var u=new URL(location.href);if(u.searchParams.get("v")===j.v)return;u.searchParams.set("v",j.v);location.replace(u.toString());}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Maths Race</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
-<link rel="stylesheet" href="common.css">
+<link rel="stylesheet" href="common.css?v=20261012074820">
 <style>
 :root{--accent:#e8590c}
 @media (prefers-color-scheme: dark){:root{--accent:#ff8c4a;--accentInk:#2a1100}}
@@ -29,7 +30,7 @@ main{display:flex;flex-direction:column;gap:14px;min-width:0}
 </style>
 </head>
 <body>
-<a class="homeLink" href="./">&larr; All games</a>
+<a class="homeLink" href="./?v=20261012074820">&larr; All games</a>
 <div class="page wide">
   <div class="top"><div><h1>Maths Race</h1><p class="sub">Answer as many sums as you can in 60 seconds.</p></div></div>
   <div class="layout">
@@ -74,7 +75,7 @@ main{display:flex;flex-direction:column;gap:14px;min-width:0}
     </aside>
   </div>
 </div>
-<script src="common.js"></script>
+<script src="common.js?v=20261012074820"></script>
 <script>
 (function(){
 const {$, sound, confetti, board, tableHTML, nameForm} = GC;

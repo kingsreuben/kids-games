@@ -27,3 +27,15 @@ The site is served with GitHub Pages from the `main` branch root.
 ## Saved scores
 
 Scores, stars and Top 10 times are kept in the browser's `localStorage` on each device. Nothing is sent to a server.
+
+## Publishing updates
+
+GitHub Pages lets browsers keep pages for up to 10 minutes. So that players get changes right away, every page checks `version.json` when it opens and reloads itself once if a newer version is out.
+
+Before each commit, run:
+
+```
+python3 tools/stamp.py
+```
+
+This writes a new version number into `version.json` and every page.
