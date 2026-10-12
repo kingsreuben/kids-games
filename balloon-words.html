@@ -16,6 +16,8 @@
 .cat{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap}
 .cat span{font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .cat b{font-family:var(--display);font-size:1.4rem;color:var(--accent)}
+.clue{margin:0;text-align:center;font-family:var(--display);font-weight:700;font-size:1.3rem;line-height:1.3;text-wrap:balance}
+.clue::before{content:"Clue: ";color:var(--accent)}
 .word{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .word .l{width:40px;height:52px;border-bottom:5px solid var(--ink);display:flex;align-items:flex-end;justify-content:center;font-family:var(--display);font-weight:800;font-size:2rem;line-height:1.2;text-transform:uppercase}
 .word .l.show{animation:popIn .25s}
@@ -39,6 +41,7 @@
   <div class="seg" role="group" aria-label="Topic" id="topics"></div>
   <div class="scene"><svg viewBox="0 0 400 210" id="sky" aria-hidden="true"></svg></div>
   <div class="cat"><span>Topic</span><b id="catName">Animals</b><span id="left">6 balloons left</span></div>
+  <p class="clue" id="clue"></p>
   <div class="word" id="word" aria-live="polite"></div>
   <p class="msg" id="msg">Pick a letter.</p>
   <div class="kb" id="kb"></div>
@@ -49,14 +52,14 @@
 (function(){
 const {$, sound, confetti, store, shuffle} = GC;
 const WORDS={
-  Animals:['ELEPHANT','GIRAFFE','MONKEY','PENGUIN','KANGAROO','TIGER','RABBIT','DOLPHIN','SQUIRREL','TORTOISE','PEACOCK','BUTTERFLY','CROCODILE','CAMEL','PARROT'],
-  Food:['MANGO','BANANA','SANDWICH','PIZZA','CHAPATI','PANEER','PANCAKE','COCONUT','POPCORN','BISCUIT','NOODLES','PINEAPPLE','SAMOSA','IDLI','CARROT'],
-  Places:['SCHOOL','GARDEN','KITCHEN','LIBRARY','HOSPITAL','BEACH','FOREST','MOUNTAIN','MARKET','ZOO','PLAYGROUND','STATION','DESERT','ISLAND','TEMPLE'],
-  Things:['UMBRELLA','PENCIL','BICYCLE','BALLOON','TELESCOPE','CANDLE','BACKPACK','CLOCK','LADDER','ROCKET','GUITAR','KITE','SCISSORS','TORCH','BLANKET'],
-  Space:['PLANET','ROCKET','ASTRONAUT','GALAXY','COMET','SATELLITE','JUPITER','SATURN','METEOR','MOON','TELESCOPE','ORBIT','NEPTUNE','SUNLIGHT','STAR']
+  Animals:[['ELEPHANT','A huge grey animal with a trunk'],['GIRAFFE','The tallest animal, with a very long neck'],['MONKEY','It swings from trees and loves bananas'],['PENGUIN','A black and white bird that swims but cannot fly'],['KANGAROO','It hops and carries its baby in a pouch'],['TIGER','A big striped cat, India\'s national animal'],['RABBIT','A small animal with long ears that loves carrots'],['DOLPHIN','A clever sea animal that jumps and clicks'],['SQUIRREL','A small furry animal with a bushy tail that eats nuts'],['TORTOISE','A slow animal that carries its shell on its back'],['PEACOCK','A bird with a beautiful fan of tail feathers'],['BUTTERFLY','An insect with colourful wings'],['CROCODILE','A big reptile with sharp teeth that lives in rivers'],['CAMEL','The ship of the desert, with a hump'],['PARROT','A colourful bird that can copy words']],
+  Food:[['MANGO','The king of fruits, sweet and yellow'],['BANANA','A long yellow fruit that monkeys love'],['SANDWICH','Two slices of bread with a filling'],['PIZZA','A round baked food with cheese on top'],['CHAPATI','A round flat bread made on a tawa'],['PANEER','A soft white cheese used in curries'],['PANCAKE','A flat cake cooked in a pan for breakfast'],['COCONUT','A hard brown fruit with water inside'],['POPCORN','Corn that pops when heated, a cinema snack'],['BISCUIT','A small crunchy snack to dip in tea or milk'],['NOODLES','Long thin strings you slurp up'],['PINEAPPLE','A spiky fruit with a leafy crown'],['SAMOSA','A crispy triangle snack filled with potato'],['IDLI','A soft steamed rice cake from South India'],['CARROT','An orange vegetable that grows underground']],
+  Places:[['SCHOOL','Where you go to learn with your teacher'],['GARDEN','A place with flowers, plants and grass'],['KITCHEN','The room where food is cooked'],['LIBRARY','A quiet place full of books to borrow'],['HOSPITAL','Where doctors and nurses help sick people'],['BEACH','Sand next to the sea'],['FOREST','A place with lots and lots of trees'],['MOUNTAIN','A very high hill'],['MARKET','Where people buy fruit, vegetables and more'],['ZOO','A place where you can see wild animals'],['PLAYGROUND','A place with swings and slides'],['STATION','Where trains stop to pick up people'],['DESERT','A hot, dry, sandy place'],['ISLAND','Land with water all around it'],['TEMPLE','A place of worship']],
+  Things:[['UMBRELLA','It keeps you dry in the rain'],['PENCIL','You write and draw with it'],['BICYCLE','It has two wheels and pedals'],['BALLOON','You blow air into it at parties'],['TELESCOPE','It helps you see the stars up close'],['CANDLE','It gives light when you light its wick'],['BACKPACK','A bag you carry on your back to school'],['CLOCK','It tells you the time'],['LADDER','You climb it to reach high places'],['ROCKET','It blasts off into space'],['GUITAR','A musical instrument with strings'],['KITE','It flies in the wind on a string'],['SCISSORS','You cut paper with them'],['TORCH','A light you carry in your hand'],['BLANKET','It keeps you warm in bed']],
+  Space:[['PLANET','Earth and Mars are each one of these'],['ROCKET','It carries astronauts into space'],['ASTRONAUT','A person who travels into space'],['GALAXY','A huge group of billions of stars'],['COMET','An icy space ball with a glowing tail'],['SATELLITE','It goes around the Earth and helps phones and TV'],['JUPITER','The biggest planet in our solar system'],['SATURN','The planet with beautiful rings'],['METEOR','A space rock that burns up as a shooting star'],['MOON','It goes around the Earth and shines at night'],['TELESCOPE','Astronomers use it to look at far-away stars'],['ORBIT','The path something takes around a planet or star'],['NEPTUNE','The planet farthest from the Sun'],['SUNLIGHT','The light that comes from the Sun'],['STAR','A ball of hot gas that twinkles at night']]
 };
 const COLORS=['--b1','--b2','--b3','--b4','--b5','--b6'];
-let topic='Animals', word='', guessed=new Set(), wrong=0, done=false, bag={}, solved=store.get('bw-solved',0), streak=0;
+let topic='Animals', word='', clue='', guessed=new Set(), wrong=0, done=false, bag={}, solved=store.get('bw-solved',0), streak=0;
 
 Object.keys(WORDS).forEach((t,i)=>{ const b=document.createElement('button'); b.textContent=t; b.dataset.t=t; b.setAttribute('aria-pressed',String(i===0)); b.onclick=()=>{ topic=t; document.querySelectorAll('#topics button').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); newWord(); }; $('topics').appendChild(b); });
 
@@ -74,7 +77,7 @@ function drawSky(){
 }
 function nextWordFor(t){ if(!bag[t]||!bag[t].length) bag[t]=shuffle(WORDS[t]); return bag[t].pop(); }
 function newWord(){
-  word=nextWordFor(topic); guessed=new Set(); wrong=0; done=false;
+  [word,clue]=nextWordFor(topic); $('clue').textContent=clue; guessed=new Set(); wrong=0; done=false;
   drawSky(); $('catName').textContent=topic; renderWord(); renderKb(); left();
   say(`The word has ${word.length} letters. Pick a letter.`);
 }
