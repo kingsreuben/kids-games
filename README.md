@@ -1,6 +1,6 @@
 # Game Corner
 
-Three simple browser games for kids. They work on computers, tablets and phones, and need nothing to install.
+Twelve simple browser games for kids. They work on computers, tablets and phones, and need nothing to install.
 
 | Page | Game |
 |---|---|
@@ -8,8 +8,17 @@ Three simple browser games for kids. They work on computers, tablets and phones,
 | `sudoku.html` | Little Sudoku: 4×4, 6×6 and 9×9 puzzles with a timer and Top 10 for each size |
 | `snakes-ladders.html` | Snakes & Ladders: play vs the computer or 2 players on one device |
 | `quiz-quest.html` | Quiz Quest: 25 levels, 250 general knowledge questions for about age 8 |
+| `memory-match.html` | Memory Match: find the pairs, 3 sizes, Top 10 by fewest moves |
+| `word-search.html` | Word Search: 5 topics, 3 difficulty levels |
+| `colour-by-number.html` | Colour by Number: 6 pixel pictures |
+| `maths-race.html` | Maths Race: 60-second sums for + − × ÷, Top 10 |
+| `spelling-bee.html` | Spelling Bee: 8 levels of read-aloud spelling |
+| `typing-hero.html` | Typing Hero: falling-letter typing practice, Top 10 |
+| `balloon-words.html` | Balloon Words: kid-friendly letter-guessing game |
+| `tic-tac-toe.html` | Tic-Tac-Toe: vs computer (3 levels) or 2 players |
+| `connect-four.html` | Connect Four: vs computer (3 levels) or 2 players |
 
-Each game is a single HTML file with its own CSS and JavaScript.
+The original three games are single self-contained HTML files. The newer games share `common.css` and `common.js` for styles, sounds and Top 10 boards.
 
 ## Hosting
 

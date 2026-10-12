@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Colour by Number</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+:root{--accent:#c2255c}
+@media (prefers-color-scheme: dark){:root{--accent:#f06595;--accentInk:#2b0613}}
+.pics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+@media (max-width:560px){.pics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.pic{border:3px solid var(--line);background:var(--card);border-radius:14px;padding:6px;display:flex;flex-direction:column;gap:4px;align-items:center}
+.pic[aria-pressed="true"]{border-color:var(--accent)}
+.pic canvas{width:100%;max-width:72px;aspect-ratio:1/1;image-rendering:pixelated;border-radius:6px}
+.pic span{font-size:.8rem;font-weight:800}
+.pic .tick{color:var(--good)}
+.canvasWrap{max-width:520px;width:100%;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);border:3px solid var(--ink);border-radius:12px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;background:var(--card)}
+.px{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:clamp(.6rem,2.6vw,1rem);color:var(--muted);border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--card)}
+.px.hl{background:color-mix(in srgb,var(--accent) 16%,var(--card));color:var(--ink)}
+.px.done{color:transparent;border-color:transparent}
+.px.oops{animation:shake .3s}
+.grid.finished .px{border-color:transparent}
+.palette{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.sw{width:64px;border:3px solid var(--line);border-radius:14px;background:var(--card);padding:5px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.sw i{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-style:normal;font-family:var(--display);font-weight:800;font-size:1.3rem;box-shadow:inset 0 0 0 2px rgba(0,0,0,.15)}
+.sw small{font-size:.7rem;font-weight:800;color:var(--muted)}
+.sw[aria-pressed="true"]{border-color:var(--ink);transform:translateY(-3px)}
+.sw.full{opacity:.4}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="page">
+  <div class="top"><div><h1>Colour by Number</h1><p class="sub">Pick a colour, then tap or drag over the squares with that number.</p></div></div>
+  <div class="pics" id="pics"></div>
+  <div class="palette" id="palette"></div>
+  <div class="canvasWrap"><div class="grid" id="grid"></div></div>
+  <p class="msg" id="msg"></p>
+  <div style="display:flex;justify-content:center;gap:10px"><button class="btn ghost" id="restart">Start this picture again</button></div>
+</div>
+<script src="common.js"></script>
+<script>
+(function(){
+const {$, sound, confetti, store} = GC;
+/* Original 12×12 pictures. Each digit is a colour number from the palette. */
+const PICS=[
+ {name:'House',pal:['#a5d8ff','#e03131','#ffd43b','#8d5524','#40c057','#f8f9fa'],rows:[
+  '111111111111','111112211111','111122221111','111222222111','112222222211','122222222221',
+  '113333333311','113663366311','113663366311','113334433311','113334433311','555555555555']},
+ {name:'Rocket',pal:['#1c2a4a','#dee2e6','#f03e3e','#4dabf7','#ff922b','#ffd43b'],rows:[
+  '161111111111','111113311116','111133331111','111122221111','111124421111','611124421111',
+  '111122221111','111122221111','111322223111','113322223311','111155551111','111115511161']},
+ {name:'Fish',pal:['#4dabf7','#ff922b','#ffffff','#212529','#2f9e44','#d0ebff'],rows:[
+  '111111116111','111111111161','111111221111','211122222211','221223222421','222223222221',
+  '221223222221','211122222211','111111221111','151111111151','551511115155','555555555555']},
+ {name:'Flower',pal:['#e7f5ff','#f783ac','#fcc419','#2f9e44','#8ce99a','#a0522d'],rows:[
+  '111112211111','112212212211','122223322221','122233332221','112223322211','111222222111',
+  '111114411111','155114411111','155514411551','115514415551','111666666111','111166661111']},
+ {name:'Apple tree',pal:['#d0ebff','#2b8a3e','#69db7c','#8d5524','#94d82d','#e03131'],rows:[
+  '111122221111','112233322211','122362333221','123333223621','122333363321','126333333221',
+  '112223322211','111122221111','111114411111','111114411111','111144441111','555555555555']},
+ {name:'Sailing boat',pal:['#d0ebff','#1971c2','#ffffff','#e03131','#8d5524','#fcc419'],rows:[
+  '111111111661','111115111661','111115311111','111135331111','111335333111','113335333311',
+  '133335333331','111115111111','444444444444','144444444441','222444444222','222222222222']}
+];
+const NAMES=['Sky','','','','',''];
+let pi=0, picked=1, painted=[], down=false;
+let doneSet=new Set(store.get('cbn-done',[]));
+
+function thumb(p,full){
+  const c=document.createElement('canvas'); c.width=12; c.height=12; const x=c.getContext('2d');
+  p.rows.forEach((r,y)=>[...r].forEach((d,xx)=>{ x.fillStyle=full?p.pal[d-1]:'#'+'e9ecef'; if(!full&&(y+xx)%2) x.fillStyle='#dee2e6'; x.fillRect(xx,y,1,1); }));
+  return c;
+}
+function renderPics(){
+  $('pics').innerHTML='';
+  PICS.forEach((p,i)=>{ const b=document.createElement('button'); b.className='pic'; b.setAttribute('aria-pressed',String(i===pi));
+    b.appendChild(thumb(p,doneSet.has(p.name))); const s=document.createElement('span'); s.innerHTML=doneSet.has(p.name)?`<span class="tick">✓</span> ${p.name}`:p.name; b.appendChild(s);
+    b.onclick=()=>{ pi=i; load(); }; $('pics').appendChild(b); });
+}
+function load(){
+  const p=PICS[pi]; painted=Array(144).fill(false); picked=1;
+  const saved=store.get('cbn-prog-'+p.name,null); if(Array.isArray(saved)&&saved.length===144) painted=saved;
+  const g=$('grid'); g.innerHTML=''; g.classList.remove('finished');
+  p.rows.join('').split('').forEach((d,i)=>{ const c=document.createElement('div'); c.className='px'; c.dataset.i=i; c.textContent=d; g.appendChild(c); });
+  renderPics(); paintAll(); renderPalette();
+  say(isDone()?`You finished the ${p.name}! Pick another picture.`:'Pick colour 1 and start colouring!', isDone()?'good':'');
+  if(isDone()) $('grid').classList.add('finished');
+}
+function nums(){ return PICS[pi].rows.join(''); }
+function isDone(){ return painted.every(Boolean); }
+function paintAll(){ const p=PICS[pi], n=nums(); [...$('grid').children].forEach((c,i)=>paintCell(c,i,p,n)); }
+function paintCell(c,i,p,n){
+  if(painted[i]){ c.style.background=p.pal[n[i]-1]; c.classList.add('done'); c.classList.remove('hl'); }
+  else { c.style.background=''; c.classList.remove('done'); c.classList.toggle('hl',+n[i]===picked); }
+}
+function left(k){ const n=nums(); let c=0; for(let i=0;i<144;i++) if(+n[i]===k&&!painted[i]) c++; return c; }
+function renderPalette(){
+  const p=PICS[pi]; $('palette').innerHTML='';
+  p.pal.forEach((col,k)=>{ const b=document.createElement('button'); b.className='sw'+(left(k+1)===0?' full':''); b.setAttribute('aria-pressed',String(picked===k+1));
+    const lightText=['#1c2a4a','#212529','#1971c2','#2b8a3e','#8d5524','#a0522d','#e03131','#f03e3e','#2f9e44','#c2255c'].includes(col);
+    b.innerHTML=`<i style="background:${col};color:${lightText?'#fff':'#222'}">${k+1}</i><small>${left(k+1)} left</small>`;
+    b.setAttribute('aria-label',`Colour ${k+1}, ${left(k+1)} squares left`);
+    b.onclick=()=>{ picked=k+1; sound.tap(); renderPalette(); paintAll(); }; $('palette').appendChild(b); });
+}
+function say(t,c){ $('msg').textContent=t; $('msg').className='msg'+(c?' '+c:''); }
+let dirty=false;
+function colour(i){
+  if(painted[i]) return; const n=nums(), c=$('grid').children[i];
+  if(+n[i]!==picked){ c.classList.remove('oops'); void c.offsetWidth; c.classList.add('oops'); say(`That square needs colour ${n[i]}.`); return; }
+  painted[i]=true; dirty=true; paintCell(c,i,PICS[pi],n);
+  if(left(picked)===0){ sound.good(); renderPalette(); const nxt=PICS[pi].pal.findIndex((_,k)=>left(k+1)>0); if(nxt>=0){ say(`All the ${picked}s are done! Now try colour ${nxt+1}.`,'good'); } }
+  if(isDone()) finish();
+}
+function save(){ if(dirty){ store.set('cbn-prog-'+PICS[pi].name,painted); dirty=false; } }
+function finish(){ save(); doneSet.add(PICS[pi].name); store.set('cbn-done',[...doneSet]); $('grid').classList.add('finished'); renderPics(); say(`Beautiful! You finished the ${PICS[pi].name}!`,'good'); sound.win(); confetti(); }
+function at(e){ const el=document.elementFromPoint(e.clientX,e.clientY); return el&&el.classList.contains('px')?+el.dataset.i:null; }
+const g=$('grid');
+g.addEventListener('pointerdown',e=>{ const i=at(e); if(i===null) return; e.preventDefault(); down=true; colour(i); });
+g.addEventListener('pointermove',e=>{ if(!down) return; const i=at(e); if(i!==null) colour(i); });
+window.addEventListener('pointerup',()=>{ if(down){ down=false; save(); renderPalette(); } });
+$('restart').onclick=()=>{ painted=Array(144).fill(false); store.set('cbn-prog-'+PICS[pi].name,painted); $('grid').classList.remove('finished'); paintAll(); renderPalette(); say('Fresh start! Pick a colour.'); };
+load();
+})();
+</script>
+</body>
+</html>

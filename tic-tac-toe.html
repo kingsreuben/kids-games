@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tic-Tac-Toe</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+:root{--accent:#1c7ed6;--x:#1c7ed6;--o:#e03131}
+@media (prefers-color-scheme: dark){:root{--accent:#5aa9ff;--accentInk:#071a33;--x:#5aa9ff;--o:#ff6b6b}}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:420px;margin:0 auto;aspect-ratio:1/1}
+.sq{border:0;border-radius:18px;background:var(--card);box-shadow:inset 0 0 0 3px var(--line);display:flex;align-items:center;justify-content:center;padding:14%}
+.sq svg{width:100%;height:100%;animation:popIn .2s}
+.sq.win{background:color-mix(in srgb,var(--sun) 45%,var(--card))}
+.sq:disabled{cursor:default}
+.turn{text-align:center;font-family:var(--display);font-weight:700;font-size:1.4rem;margin:0}
+.turn .x{color:var(--x)} .turn .o{color:var(--o)}
+.score{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:420px;margin:0 auto;width:100%}
+.score .stat{align-items:center}
+.score .sx b{color:var(--x)} .score .so b{color:var(--o)}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="page">
+  <div class="top"><div><h1>Tic-Tac-Toe</h1><p class="sub">Get three in a row: across, down or corner to corner.</p></div></div>
+  <div class="seg" role="group" aria-label="Who is playing">
+    <button data-opp="easy" aria-pressed="true">vs Computer<small>Easy</small></button>
+    <button data-opp="medium" aria-pressed="false">vs Computer<small>Medium</small></button>
+    <button data-opp="hard" aria-pressed="false">vs Computer<small>Unbeatable</small></button>
+    <button data-opp="pvp" aria-pressed="false">2 Players<small>Same device</small></button>
+  </div>
+  <div class="score">
+    <div class="stat sx"><span id="nx">You (X)</span><b id="wx">0</b></div>
+    <div class="stat"><span>Draws</span><b id="wd">0</b></div>
+    <div class="stat so"><span id="no">Computer (O)</span><b id="wo">0</b></div>
+  </div>
+  <p class="turn" id="turn" aria-live="polite"></p>
+  <div class="board" id="board"></div>
+  <div class="row"><button class="btn" id="again">New round</button><button class="btn ghost" id="resetScore">Reset scores</button></div>
+</div>
+<script src="common.js"></script>
+<script>
+(function(){
+const {$, sound, confetti, store} = GC;
+const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const XS='<svg viewBox="0 0 100 100"><path d="M20 20L80 80M80 20L20 80" stroke="var(--x)" stroke-width="14" stroke-linecap="round"/></svg>';
+const OS='<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="31" fill="none" stroke="var(--o)" stroke-width="14"/></svg>';
+let opp=store.get('ttt-opp','easy'), b=[], turn='X', first='X', over=false, tally;
+const key=()=>'ttt-score-'+(opp==='pvp'?'pvp':'cpu-'+opp);
+function winner(s){ for(const l of LINES){ const [a,c,d]=l; if(s[a]&&s[a]===s[c]&&s[a]===s[d]) return {p:s[a],l}; } return s.every(Boolean)?{p:'D'}:null; }
+function minimax(s,p){
+  const w=winner(s); if(w) return {sc:w.p==='O'?10:w.p==='X'?-10:0};
+  let best={sc:p==='O'?-99:99};
+  for(let i=0;i<9;i++) if(!s[i]){ s[i]=p; const r=minimax(s,p==='O'?'X':'O'); s[i]=null; r.sc+= r.sc>0?-1:r.sc<0?1:0; if(p==='O'?r.sc>best.sc:r.sc<best.sc) best={sc:r.sc,i}; }
+  return best;
+}
+function cpuMove(){
+  const free=b.map((v,i)=>v?null:i).filter(v=>v!==null), rnd=()=>free[Math.floor(Math.random()*free.length)];
+  if(opp==='easy') return Math.random()<.25 ? (findWin('O')??rnd()) : rnd();
+  if(opp==='medium'){ const w=findWin('O'); if(w!==null) return w; const bl=findWin('X'); if(bl!==null && Math.random()<.85) return bl; if(!b[4]&&Math.random()<.6) return 4; return rnd(); }
+  return minimax(b.slice(),'O').i;
+}
+function findWin(p){ for(const l of LINES){ const v=l.map(i=>b[i]); if(v.filter(x=>x===p).length===2 && v.includes(null)) return l[v.indexOf(null)]; } return null; }
+function names(){ return opp==='pvp'?{X:'Player 1',O:'Player 2'}:{X:'You',O:'Computer'}; }
+function render(win){
+  const n=names();
+  [...$('board').children].forEach((el,i)=>{ el.innerHTML=b[i]==='X'?XS:b[i]==='O'?OS:''; el.disabled=over||!!b[i]||(opp!=='pvp'&&turn==='O'); el.classList.toggle('win',!!(win&&win.l&&win.l.includes(i))); el.setAttribute('aria-label',`Square ${i+1}${b[i]?', '+b[i]:', empty'}`); });
+  $('nx').textContent=n.X+' (X)'; $('no').textContent=n.O+' (O)';
+  $('wx').textContent=tally.X; $('wo').textContent=tally.O; $('wd').textContent=tally.D;
+  if(!over) $('turn').innerHTML = `<span class="${turn.toLowerCase()}">${n[turn]==='You'?'Your':n[turn]+'’s'} turn</span>`;
+}
+function play(i){
+  if(over||b[i]) return;
+  b[i]=turn; sound.tap();
+  const w=winner(b);
+  if(w){ end(w); return; }
+  turn=turn==='X'?'O':'X'; render();
+  if(opp!=='pvp'&&turn==='O') setTimeout(()=>play(cpuMove()),450);
+}
+function end(w){
+  over=true; tally[w.p]++; store.set(key(),tally); const n=names();
+  if(w.p==='D'){ $('turn').textContent="It's a draw!"; sound.tap(); }
+  else { const human=opp==='pvp'||w.p==='X'; $('turn').innerHTML=`<span class="${w.p.toLowerCase()}">${n[w.p]==='You'?'You win!':n[w.p]+' wins!'}</span>`; if(human){ sound.win(); confetti(); } else sound.lose(); }
+  render(w);
+}
+function newRound(){
+  b=Array(9).fill(null); over=false; turn=first; first=first==='X'?'O':'X';
+  render(); if(opp!=='pvp'&&turn==='O') setTimeout(()=>play(cpuMove()),500);
+}
+for(let i=0;i<9;i++){ const s=document.createElement('button'); s.className='sq'; s.onclick=()=>play(i); $('board').appendChild(s); }
+function setOpp(o){ opp=o; store.set('ttt-opp',o); tally=store.get(key(),{X:0,O:0,D:0}); first='X'; document.querySelectorAll('[data-opp]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.opp===o))); newRound(); }
+document.querySelectorAll('[data-opp]').forEach(x=>x.onclick=()=>setOpp(x.dataset.opp));
+$('again').onclick=newRound;
+$('resetScore').onclick=()=>{ tally={X:0,O:0,D:0}; store.set(key(),tally); render(); };
+setOpp(opp);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Search</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+:root{--accent:#7048e8;--h1:#ffd43b;--h2:#8ce99a;--h3:#74c0fc;--h4:#ffa8a8;--h5:#e599f7;--sel:#ffe066}
+@media (prefers-color-scheme: dark){:root{--accent:#a48bff;--accentInk:#150a33;--h1:#8a6d00;--h2:#2b7a3d;--h3:#1c5f94;--h4:#8f2f2f;--h5:#6b2f80;--sel:#7a6200}}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:minmax(0,1fr)}}
+main{display:flex;flex-direction:column;gap:12px;min-width:0}
+.grid{display:grid;background:var(--card);border:3px solid var(--accent);border-radius:16px;padding:8px;gap:2px;touch-action:none;user-select:none;-webkit-user-select:none;aspect-ratio:1/1;max-width:100%}
+.cell{display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;border-radius:8px;cursor:pointer;line-height:1}
+.cell.sel{background:var(--sel)}
+.cell.c0{background:var(--h1)} .cell.c1{background:var(--h2)} .cell.c2{background:var(--h3)} .cell.c3{background:var(--h4)} .cell.c4{background:var(--h5)}
+.cell.start{outline:3px solid var(--accent);outline-offset:-3px}
+.words{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:0;padding:0}
+.words li{font-family:var(--display);font-weight:700;font-size:1.1rem;padding:4px 12px;border-radius:999px;background:var(--soft);letter-spacing:.04em}
+.words li.found{text-decoration:line-through;opacity:.55}
+.side{display:flex;flex-direction:column;gap:12px}
+.side h3{margin:0;font-family:var(--display);font-size:1.3rem}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="page wide">
+  <div class="top"><div><h1>Word Search</h1><p class="sub">Drag across the letters to find each word. You can also tap the first letter, then the last.</p></div></div>
+  <div class="seg" role="group" aria-label="Difficulty">
+    <button data-level="easy" aria-pressed="true">Easy<small>across &amp; down</small></button>
+    <button data-level="medium" aria-pressed="false">Medium<small>+ slanting</small></button>
+    <button data-level="hard" aria-pressed="false">Hard<small>+ backwards</small></button>
+  </div>
+  <div class="seg" role="group" aria-label="Theme" id="themes"></div>
+  <div class="layout">
+    <main>
+      <div class="grid" id="grid"></div>
+      <p class="msg" id="msg"></p>
+    </main>
+    <aside class="side card">
+      <h3>Find these words</h3>
+      <ul class="words" id="words"></ul>
+      <div class="stats">
+        <div class="stat"><span>Found</span><b id="found">0/6</b></div>
+        <div class="stat"><span>Time</span><b id="time">0:00</b></div>
+      </div>
+      <button class="btn" id="newBtn">New puzzle</button>
+    </aside>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+(function(){
+const {$, sound, confetti, fmtTime, shuffle} = GC;
+const THEMES={
+  Animals:['LION','TIGER','ZEBRA','MONKEY','HORSE','CAMEL','PANDA','RABBIT','GIRAFFE','EAGLE','SNAKE','SHEEP'],
+  Fruits:['MANGO','APPLE','BANANA','GRAPES','ORANGE','GUAVA','CHERRY','PAPAYA','LEMON','MELON','KIWI','PEAR'],
+  Space:['MOON','STAR','SUN','PLANET','COMET','ROCKET','EARTH','MARS','ORBIT','GALAXY','VENUS','ALIEN'],
+  School:['BOOK','PENCIL','ERASER','RULER','TEACHER','DESK','CRAYON','BAG','CHALK','LUNCH','CLASS','PAPER'],
+  Colours:['RED','BLUE','GREEN','PINK','PURPLE','ORANGE','YELLOW','BROWN','BLACK','WHITE','GREY','GOLD']
+};
+const LEVELS={easy:{n:8,count:6,dirs:[[0,1],[1,0]]},medium:{n:10,count:8,dirs:[[0,1],[1,0],[1,1],[-1,1]]},hard:{n:12,count:10,dirs:[[0,1],[1,0],[1,1],[-1,1],[0,-1],[-1,0],[-1,-1],[1,-1]]}};
+let level='easy', theme='Animals', N=8, letters=[], placed=[], found=new Set(), t0=0, timer=null, startCell=null, dragging=false, path=[], colorIdx=0;
+
+Object.keys(THEMES).forEach((t,i)=>{ const b=document.createElement('button'); b.textContent=t; b.dataset.theme=t; b.setAttribute('aria-pressed',String(i===0)); b.onclick=()=>{ theme=t; document.querySelectorAll('[data-theme]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); newPuzzle(); }; $('themes').appendChild(b); });
+
+function build(){
+  const L=LEVELS[level]; N=L.n;
+  for(let attempt=0;attempt<50;attempt++){
+    const g=Array(N*N).fill(''), pl=[];
+    const pool=shuffle(THEMES[theme].filter(w=>w.length<=N)).sort((a,b)=>b.length-a.length);
+    for(const w of pool){
+      if(pl.length===L.count) break;
+      let ok=false;
+      for(let tries=0;tries<200&&!ok;tries++){
+        const [dr,dc]=L.dirs[Math.floor(Math.random()*L.dirs.length)];
+        const r0=Math.floor(Math.random()*N), c0=Math.floor(Math.random()*N);
+        const r1=r0+dr*(w.length-1), c1=c0+dc*(w.length-1);
+        if(r1<0||r1>=N||c1<0||c1>=N) continue;
+        let fits=true; for(let k=0;k<w.length;k++){ const ch=g[(r0+dr*k)*N+c0+dc*k]; if(ch&&ch!==w[k]){fits=false;break;} }
+        if(!fits) continue;
+        const cells=[]; for(let k=0;k<w.length;k++){ const i=(r0+dr*k)*N+c0+dc*k; g[i]=w[k]; cells.push(i); }
+        pl.push({w,cells}); ok=true;
+      }
+    }
+    if(pl.length===L.count){
+      const AZ='ABCDEFGHIJKLMNOPRSTUWY';
+      letters=g.map(ch=>ch||AZ[Math.floor(Math.random()*AZ.length)]);
+      placed=pl.sort((a,b)=>a.w.localeCompare(b.w)); return;
+    }
+  }
+}
+function newPuzzle(){
+  clearInterval(timer); t0=0; found=new Set(); colorIdx=0; startCell=null; path=[];
+  build();
+  const g=$('grid'); g.style.gridTemplateColumns=`repeat(${N},1fr)`; g.innerHTML='';
+  const fs = N===8?'clamp(1.1rem,5.5vw,2rem)':N===10?'clamp(.95rem,4.5vw,1.65rem)':'clamp(.8rem,3.7vw,1.35rem)';
+  letters.forEach((ch,i)=>{ const d=document.createElement('div'); d.className='cell'; d.dataset.i=i; d.textContent=ch; d.style.fontSize=fs; g.appendChild(d); });
+  $('words').innerHTML=placed.map(p=>`<li data-w="${p.w}">${p.w}</li>`).join('');
+  $('time').textContent='0:00'; upd(); say('Drag across a word to circle it.');
+}
+function upd(){ $('found').textContent=`${found.size}/${placed.length}`; }
+function say(t,c){ $('msg').textContent=t; $('msg').className='msg'+(c?' '+c:''); }
+function cellAt(x,y){ const el=document.elementFromPoint(x,y); return el&&el.classList.contains('cell')?+el.dataset.i:null; }
+function line(a,b){
+  const r0=Math.floor(a/N),c0=a%N,r1=Math.floor(b/N),c1=b%N, dr=Math.sign(r1-r0), dc=Math.sign(c1-c0);
+  const len=Math.max(Math.abs(r1-r0),Math.abs(c1-c0));
+  if(!(r0===r1||c0===c1||Math.abs(r1-r0)===Math.abs(c1-c0))) return [a];
+  return [...Array(len+1)].map((_,k)=>(r0+dr*k)*N+c0+dc*k);
+}
+function paint(){ document.querySelectorAll('.cell.sel').forEach(e=>e.classList.remove('sel')); path.forEach(i=>$('grid').children[i].classList.add('sel')); }
+function tryWord(){
+  const s=path.map(i=>letters[i]).join(''), r=[...s].reverse().join('');
+  const hit=placed.find(p=>!found.has(p.w) && (p.w===s||p.w===r) && p.cells.length===path.length && (p.cells.every((c,k)=>c===path[k])||p.cells.every((c,k)=>c===path[path.length-1-k])));
+  path=[]; paint();
+  if(!hit){ if(s.length>1){ sound.bad(); say('Not a word from the list. Keep looking!'); } return; }
+  found.add(hit.w); const c='c'+(colorIdx++%5);
+  hit.cells.forEach(i=>$('grid').children[i].classList.add(c));
+  document.querySelector(`li[data-w="${hit.w}"]`).classList.add('found');
+  sound.good(); say(`You found ${hit.w}!`,'good'); upd();
+  if(found.size===placed.length){ clearInterval(timer); const s=(Date.now()-t0)/1000; say(`All ${placed.length} words found in ${fmtTime(s)}! Brilliant!`,'good'); sound.win(); confetti(); }
+}
+const grid=$('grid');
+grid.addEventListener('pointerdown',e=>{
+  const i=cellAt(e.clientX,e.clientY); if(i===null) return;
+  if(!t0){ t0=Date.now(); timer=setInterval(()=>$('time').textContent=fmtTime((Date.now()-t0)/1000),500); }
+  e.preventDefault();
+  if(startCell!==null && startCell!==i){ // tap-tap mode: second tap ends
+    $('grid').children[startCell].classList.remove('start'); path=line(startCell,i); startCell=null; paint(); setTimeout(tryWord,120); return;
+  }
+  dragging=true; path=[i]; paint(); sound.tap();
+});
+grid.addEventListener('pointermove',e=>{ if(!dragging) return; const i=cellAt(e.clientX,e.clientY); if(i===null) return; path=line(path[0],i); paint(); });
+window.addEventListener('pointerup',()=>{
+  if(!dragging) return; dragging=false;
+  if(path.length===1){ // a tap: remember as start
+    if(startCell!==null) $('grid').children[startCell].classList.remove('start');
+    startCell=path[0]; $('grid').children[startCell].classList.add('start'); path=[]; paint(); say('Now tap the last letter of the word.'); return;
+  }
+  if(startCell!==null){ $('grid').children[startCell].classList.remove('start'); startCell=null; }
+  tryWord();
+});
+document.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{ level=b.dataset.level; document.querySelectorAll('[data-level]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); newPuzzle(); });
+$('newBtn').onclick=newPuzzle;
+newPuzzle();
+})();
+</script>
+</body>
+</html>

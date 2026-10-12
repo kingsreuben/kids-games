@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maths Race</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+:root{--accent:#e8590c}
+@media (prefers-color-scheme: dark){:root{--accent:#ff8c4a;--accentInk:#2a1100}}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.arena{background:var(--card);border:3px solid var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:14px;position:relative}
+.bar{width:100%;height:12px;border-radius:6px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;width:100%;background:var(--accent);transition:width .25s linear}
+.sum{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,12vw,4.2rem);line-height:1;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:.3em;flex-wrap:wrap;justify-content:center}
+.ans{min-width:2.2em;padding:0 .2em;border-bottom:5px solid var(--accent);text-align:center;color:var(--accent)}
+.ans.good{color:var(--good);border-color:var(--good)} .ans.bad{color:var(--bad);border-color:var(--bad);animation:shake .3s}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:340px}
+.pad button{font-family:var(--display);font-weight:800;font-size:1.7rem;padding:10px 0;border-radius:14px;border:2px solid var(--line);background:var(--card)}
+.pad button:active{transform:scale(.95)}
+.pad .del{font-size:1.1rem}
+.ready{position:absolute;inset:0;background:color-mix(in srgb,var(--card) 92%,transparent);border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:16px}
+.ready p{margin:0;font-weight:800;color:var(--muted)}
+.count{font-family:var(--display);font-size:5rem;font-weight:800;color:var(--accent);line-height:1}
+.side{display:flex;flex-direction:column;gap:12px}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="page wide">
+  <div class="top"><div><h1>Maths Race</h1><p class="sub">Answer as many sums as you can in 60 seconds.</p></div></div>
+  <div class="layout">
+    <main>
+      <div class="seg" role="group" aria-label="Kind of sums" id="modes">
+        <button data-mode="add" aria-pressed="true">+<small>Add</small></button>
+        <button data-mode="sub" aria-pressed="false">−<small>Take away</small></button>
+        <button data-mode="mul" aria-pressed="false">×<small>Times</small></button>
+        <button data-mode="div" aria-pressed="false">÷<small>Share</small></button>
+        <button data-mode="mix" aria-pressed="false">?<small>Mix</small></button>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>Score</span><b id="score">0</b></div>
+        <div class="stat"><span>Streak</span><b id="streak">0</b></div>
+        <div class="stat"><span>Time left</span><b id="left">60</b></div>
+      </div>
+      <div class="arena" id="arena">
+        <div class="bar"><i id="bar"></i></div>
+        <div class="sum" aria-live="polite"><span id="q">7 + 5</span><span>=</span><span class="ans" id="ans">&nbsp;</span></div>
+        <div class="pad" id="pad"></div>
+        <div class="ready" id="ready">
+          <div class="count" id="count" hidden>3</div>
+          <button class="btn big" id="start">Start</button>
+          <p id="readyText">Adding · 60 seconds · type the answer, it checks itself</p>
+        </div>
+      </div>
+      <p class="msg" id="msg">Tip: you can also use the keyboard.</p>
+      <section class="result" id="result" hidden>
+        <h2>Time's up!</h2>
+        <div class="big" id="rScore">0 right</div>
+        <p id="rText"></p>
+        <form class="nameForm" id="nameForm" autocomplete="off"><label for="nameIn">Type your name for the Top 10</label><input id="nameIn" maxlength="16" placeholder="Your name" required><button class="btn" type="submit">Save</button></form>
+        <button class="btn big" id="again">Race again</button>
+      </section>
+    </main>
+    <aside class="side card top10">
+      <h3 id="lbTitle">Top 10 · Adding</h3>
+      <div class="seg" role="tablist" id="lbTabs">
+        <button data-lb="add" aria-selected="true">+</button><button data-lb="sub" aria-selected="false">−</button><button data-lb="mul" aria-selected="false">×</button><button data-lb="div" aria-selected="false">÷</button><button data-lb="mix" aria-selected="false">?</button>
+      </div>
+      <div id="lb"></div>
+    </aside>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+(function(){
+const {$, sound, confetti, board, tableHTML, nameForm} = GC;
+const NAMES={add:'Adding',sub:'Taking away',mul:'Times tables',div:'Sharing (÷)',mix:'Mixed'};
+const R=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+let mode='add', q=null, typed='', score=0, streak=0, best=0, wrong=0, endAt=0, timer=null, running=false;
+const boards={}; for(const m in NAMES) boards[m]=board({key:'mr-top-'+m, better:(a,b)=>b.p-a.p, show:e=>e.p});
+$('lb').innerHTML=tableHTML('Score');
+
+function make(m){
+  if(m==='mix') m=['add','sub','mul','div'][R(0,3)];
+  if(m==='add'){ const a=R(2,30),b=R(2,30); return {t:`${a} + ${b}`,a:a+b}; }
+  if(m==='sub'){ const a=R(5,40),b=R(1,a); return {t:`${a} − ${b}`,a:a-b}; }
+  if(m==='mul'){ const a=R(2,10),b=R(2,10); return {t:`${a} × ${b}`,a:a*b}; }
+  const b=R(2,10),a=R(1,10); return {t:`${a*b} ÷ ${b}`,a};
+}
+function next(){ let n; do{ n=make(mode); }while(q && n.t===q.t); q=n; typed=''; $('q').textContent=q.t; showAns(''); }
+function showAns(cls){ const e=$('ans'); e.textContent=typed||' '; e.className='ans'+(cls?' '+cls:''); }
+function press(k){
+  if(!running) return;
+  if(k==='del'){ typed=typed.slice(0,-1); showAns(''); return; }
+  if(typed.length>=4) return;
+  typed+=k; showAns(''); sound.tap();
+  const target=String(q.a);
+  if(typed.length>=target.length){
+    if(typed===target){ score++; streak++; best=Math.max(best,streak); showAns('good'); sound.good(); say(streak>=5?`${streak} in a row!`:'Correct!','good'); setTimeout(()=>{ if(running) next(); },250); }
+    else { wrong++; streak=0; showAns('bad'); sound.bad(); say(`${q.t} = ${q.a}`,'bad'); setTimeout(()=>{ if(running) next(); },700); }
+    upd();
+  }
+}
+function say(t,c){ $('msg').textContent=t; $('msg').className='msg'+(c?' '+c:''); }
+function upd(){ $('score').textContent=score; $('streak').textContent=streak; }
+function buildPad(){
+  const keys=['7','8','9','4','5','6','1','2','3','del','0'];
+  $('pad').innerHTML='';
+  keys.forEach(k=>{ const b=document.createElement('button'); b.textContent=k==='del'?'⌫ Delete':k; if(k==='del') b.className='del'; b.onclick=()=>press(k); $('pad').appendChild(b); });
+}
+function reset(){
+  clearInterval(timer); running=false; score=0; streak=0; best=0; wrong=0; q=null; upd();
+  $('left').textContent='60'; $('bar').style.width='100%';
+  $('ready').hidden=false; $('start').hidden=false; $('count').hidden=true;
+  $('readyText').textContent=`${NAMES[mode]} · 60 seconds · type the answer, it checks itself`;
+  $('result').hidden=true; $('arena').hidden=false; next(); say('Tip: you can also use the keyboard.');
+  showBoard(mode);
+}
+function start(){
+  $('start').hidden=true; $('count').hidden=false; let c=3; $('count').textContent=c; sound.tap();
+  const cd=setInterval(()=>{ c--; if(c>0){ $('count').textContent=c; sound.tap(); } else { clearInterval(cd); go(); } },700);
+}
+function go(){
+  $('ready').hidden=true; running=true; endAt=Date.now()+60000; next();
+  timer=setInterval(()=>{
+    const ms=endAt-Date.now(); $('left').textContent=Math.max(0,Math.ceil(ms/1000)); $('bar').style.width=Math.max(0,ms/600)+'%';
+    if(ms<=0) finish();
+  },100);
+}
+function finish(){
+  clearInterval(timer); running=false;
+  $('arena').hidden=true; $('result').hidden=false;
+  $('rScore').textContent=`${score} right`;
+  $('rText').textContent=`${NAMES[mode]} · best streak ${best}`+(wrong?` · ${wrong} to practise`:' · no mistakes!');
+  sound.win(); if(score>0) confetti();
+  const m=mode, p=score;
+  nameForm($('nameForm'),$('nameIn'),n=>{
+    const rank=boards[m].add({n,p}); showBoard(m,rank);
+    $('rText').textContent = rank>=0 ? (rank===0?`New record, ${n}! You're number 1!`:`Great job, ${n}! You're number ${rank+1} in the Top 10.`) : `Well done, ${n}! Keep practising to reach the Top 10.`;
+  });
+}
+function showBoard(m,h){
+  $('lbTitle').textContent='Top 10 · '+NAMES[m];
+  document.querySelectorAll('#lbTabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.lb===m)));
+  boards[m].render($('lb').querySelector('tbody'),$('lb').querySelector('.empty'),h??-1);
+}
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{ if(running) return; mode=b.dataset.mode; document.querySelectorAll('[data-mode]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); reset(); });
+document.querySelectorAll('#lbTabs button').forEach(b=>b.onclick=()=>showBoard(b.dataset.lb));
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(/^[0-9]$/.test(e.key)) press(e.key);
+  else if(e.key==='Backspace') press('del');
+  else if((e.key==='Enter'||e.key===' ') && !running && !$('ready').hidden && !$('start').hidden){ e.preventDefault(); start(); }
+});
+$('start').onclick=start; $('again').onclick=reset;
+buildPad(); reset();
+})();
+</script>
+</body>
+</html>

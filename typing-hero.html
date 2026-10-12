@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Typing Hero</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+:root{--accent:#5f3dc4;--night1:#1b1f4a;--night2:#3b2a6e;--drop:#ffd43b;--dropInk:#2b1d00}
+@media (prefers-color-scheme: dark){:root{--accent:#9775fa;--accentInk:#12082e}}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:22px;align-items:start}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+main{display:flex;flex-direction:column;gap:12px;min-width:0}
+.sky{position:relative;height:min(52vh,380px);border-radius:20px;overflow:hidden;background:linear-gradient(var(--night1),var(--night2));border:3px solid var(--accent)}
+.sky .ground{position:absolute;left:0;right:0;bottom:0;height:14px;background:repeating-linear-gradient(90deg,#ff6b6b 0 20px,#ffa94d 20px 40px)}
+.drop{position:absolute;width:48px;height:48px;margin-left:-24px;border-radius:50%;background:var(--drop);color:var(--dropInk);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:1.7rem;text-transform:uppercase;box-shadow:0 0 0 4px rgba(255,212,59,.3),0 4px 10px rgba(0,0,0,.4)}
+.drop.hit{animation:burst .25s forwards}
+@keyframes burst{to{transform:scale(1.8);opacity:0}}
+.star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;opacity:.6}
+.ready{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:16px;color:#fff;background:rgba(10,10,30,.55);z-index:3}
+.ready p{margin:0;font-weight:800}
+.hearts{font-size:1.3rem;color:#e03131;letter-spacing:2px}
+.kb{display:flex;flex-direction:column;gap:6px;width:100%;max-width:560px;margin:0 auto}
+.kb div{display:flex;gap:5px;justify-content:center}
+.kb button{flex:1;max-width:48px;font-family:var(--display);font-weight:800;font-size:1.25rem;padding:10px 0;border-radius:10px;border:2px solid var(--line);background:var(--card);text-transform:uppercase}
+.kb button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--card))}
+.kb button.off{opacity:.35}
+.side{display:flex;flex-direction:column;gap:12px}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="page wide">
+  <div class="top"><div><h1>Typing Hero</h1><p class="sub">Type the falling letters before they reach the ground. On a tablet, tap the keys below.</p></div></div>
+  <div class="layout">
+    <main>
+      <div class="seg" role="group" aria-label="Level" id="levels">
+        <button data-lv="home" aria-pressed="true">Home row<small>A S D F J K L</small></button>
+        <button data-lv="top" aria-pressed="false">+ Top row<small>Q to P</small></button>
+        <button data-lv="all" aria-pressed="false">All letters<small>A to Z</small></button>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>Score</span><b id="score">0</b></div>
+        <div class="stat"><span>Lives</span><b class="hearts" id="lives">♥♥♥♥♥</b></div>
+        <div class="stat"><span>Speed</span><b id="speed">1</b></div>
+      </div>
+      <div class="sky" id="sky">
+        <div class="ground"></div>
+        <div class="ready" id="ready">
+          <button class="btn big" id="start">Start</button>
+          <p id="readyText">Home row: A S D F J K L</p>
+        </div>
+      </div>
+      <div class="kb" id="kb"></div>
+      <section class="result" id="result" hidden>
+        <h2>Game over!</h2>
+        <div class="big" id="rScore">0 letters</div>
+        <p id="rText"></p>
+        <form class="nameForm" id="nameForm" autocomplete="off"><label for="nameIn">Type your name for the Top 10</label><input id="nameIn" maxlength="16" placeholder="Your name" required><button class="btn" type="submit">Save</button></form>
+        <button class="btn big" id="again">Play again</button>
+      </section>
+    </main>
+    <aside class="side card top10">
+      <h3 id="lbTitle">Top 10 · Home row</h3>
+      <div class="seg" role="tablist" id="lbTabs"><button data-lb="home" aria-selected="true">Home</button><button data-lb="top" aria-selected="false">+ Top</button><button data-lb="all" aria-selected="false">All</button></div>
+      <div id="lb"></div>
+    </aside>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+(function(){
+const {$, sound, confetti, board, tableHTML, nameForm} = GC;
+const SETS={home:'asdfjkl',top:'asdfghjklqwertyuiop',all:'abcdefghijklmnopqrstuvwxyz'};
+const NAMES={home:'Home row',top:'+ Top row',all:'All letters'};
+let lv='home', drops=[], score=0, lives=5, running=false, last=0, spawnIn=0, id=0, raf=0;
+const boards={}; for(const k in SETS) boards[k]=board({key:'th-top-'+k, better:(a,b)=>b.p-a.p, show:e=>e.p});
+$('lb').innerHTML=tableHTML('Score');
+for(let i=0;i<40;i++){ const s=document.createElement('div'); s.className='star'; s.style.left=Math.random()*100+'%'; s.style.top=Math.random()*85+'%'; $('sky').appendChild(s); }
+
+function speedLevel(){ return 1+Math.floor(score/10); }
+function buildKb(){
+  $('kb').innerHTML='';
+  ['qwertyuiop','asdfghjkl','zxcvbnm'].forEach(r=>{ const d=document.createElement('div');
+    [...r].forEach(c=>{ const b=document.createElement('button'); b.textContent=c; b.className=SETS[lv].includes(c)?'on':'off'; b.onpointerdown=e=>{ e.preventDefault(); hit(c); }; d.appendChild(b); });
+    $('kb').appendChild(d); });
+}
+function reset(){
+  cancelAnimationFrame(raf); running=false; drops.forEach(d=>d.el.remove()); drops=[]; score=0; lives=5; upd();
+  $('ready').hidden=false; $('readyText').textContent=`${NAMES[lv]}: ${SETS[lv].toUpperCase().split('').join(' ')}`;
+  $('result').hidden=true; $('sky').hidden=false; $('kb').hidden=false; buildKb(); showBoard(lv);
+}
+function upd(){ $('score').textContent=score; $('lives').textContent='♥'.repeat(lives)+'♡'.repeat(5-lives); $('speed').textContent=speedLevel(); }
+function start(){ $('ready').hidden=true; running=true; last=performance.now(); spawnIn=0; raf=requestAnimationFrame(loop); }
+function spawn(){
+  const set=SETS[lv]; let c; do{ c=set[Math.floor(Math.random()*set.length)]; }while(drops.some(d=>d.c===c) && drops.length<set.length);
+  const el=document.createElement('div'); el.className='drop'; el.textContent=c;
+  const x=8+Math.random()*84; el.style.left=x+'%'; el.style.top='-50px'; $('sky').appendChild(el);
+  drops.push({id:id++,c,el,y:-50});
+}
+function loop(t){
+  if(!running) return;
+  const dt=Math.min(.05,(t-last)/1000); last=t;
+  const H=$('sky').clientHeight-14-48, sp=32+speedLevel()*9;
+  spawnIn-=dt; if(spawnIn<=0){ spawn(); spawnIn=Math.max(.55,2.1-speedLevel()*.15); }
+  for(const d of drops.slice()){ d.y+=sp*dt; d.el.style.top=d.y+'px';
+    if(d.y>=H){ d.el.remove(); drops=drops.filter(x=>x!==d); lives--; sound.bad(); upd(); if(lives<=0){ end(); return; } } }
+  raf=requestAnimationFrame(loop);
+}
+function hit(c){
+  if(!running) return;
+  const cands=drops.filter(d=>d.c===c).sort((a,b)=>b.y-a.y);
+  if(!cands.length){ sound.tap(); return; }
+  const d=cands[0]; drops=drops.filter(x=>x!==d); d.el.classList.add('hit'); setTimeout(()=>d.el.remove(),250);
+  score++; sound.pop(); upd();
+}
+function end(){
+  running=false; cancelAnimationFrame(raf); drops.forEach(d=>d.el.remove()); drops=[];
+  $('sky').hidden=true; $('kb').hidden=true; $('result').hidden=false;
+  $('rScore').textContent=`${score} letters`; $('rText').textContent=`${NAMES[lv]} · reached speed ${speedLevel()}`;
+  if(score>0){ sound.win(); confetti(); } else sound.lose();
+  const l=lv, p=score;
+  nameForm($('nameForm'),$('nameIn'),n=>{ const rank=boards[l].add({n,p}); showBoard(l,rank);
+    $('rText').textContent = rank>=0 ? (rank===0?`New record, ${n}! You're number 1!`:`Great job, ${n}! You're number ${rank+1} in the Top 10.`) : `Well done, ${n}! Keep practising to reach the Top 10.`; });
+}
+function showBoard(l,h){ $('lbTitle').textContent='Top 10 · '+NAMES[l]; document.querySelectorAll('#lbTabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.lb===l))); boards[l].render($('lb').querySelector('tbody'),$('lb').querySelector('.empty'),h??-1); }
+document.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{ if(running) return; lv=b.dataset.lv; document.querySelectorAll('[data-lv]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); reset(); });
+document.querySelectorAll('#lbTabs button').forEach(b=>b.onclick=()=>showBoard(b.dataset.lb));
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(/^[a-z]$/i.test(e.key)){ e.preventDefault(); hit(e.key.toLowerCase()); }
+  else if((e.key==='Enter'||e.key===' ')&&!running&&!$('ready').hidden){ e.preventDefault(); start(); }
+});
+document.addEventListener('visibilitychange',()=>{ if(document.hidden&&running){ running=false; cancelAnimationFrame(raf); $('ready').hidden=false; $('readyText').textContent='Paused. Press Start to keep going.'; } });
+$('start').onclick=()=>{ if(drops.length||score) { $('ready').hidden=true; running=true; last=performance.now(); raf=requestAnimationFrame(loop); } else start(); };
+$('again').onclick=reset;
+reset();
+})();
+</script>
+</body>
+</html>

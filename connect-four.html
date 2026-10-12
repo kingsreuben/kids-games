@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Connect Four</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+:root{--accent:#1864ab;--frame:#1864ab;--hole:#f6f2ea;--p1:#f03e3e;--p2:#fab005}
+@media (prefers-color-scheme: dark){:root{--accent:#4dabf7;--accentInk:#06182b;--frame:#1c4f80;--hole:#131a21;--p1:#ff6b6b;--p2:#ffd43b}}
+.wrap{width:100%;max-width:560px;margin:0 auto}
+.board{position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:6px;background:var(--frame);padding:10px;border-radius:18px;box-shadow:0 6px 0 color-mix(in srgb,var(--frame) 60%,#000)}
+.col{display:grid;grid-template-rows:repeat(6,1fr);gap:6px;border:0;background:transparent;padding:0;border-radius:10px}
+.col:hover:not(:disabled),.col:focus-visible{background:rgba(255,255,255,.12)}
+.col:disabled{cursor:default}
+.h{aspect-ratio:1/1;border-radius:50%;background:var(--hole);position:relative;overflow:hidden}
+.h i{position:absolute;inset:6%;border-radius:50%;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)}
+.h i.p1{background:var(--p1)} .h i.p2{background:var(--p2)}
+.h i.drop{animation:drop .35s cubic-bezier(.4,0,.7,1.3)}
+@keyframes drop{from{transform:translateY(calc(var(--d) * -112%))}to{transform:translateY(0)}}
+.h.win i{box-shadow:0 0 0 4px #fff inset,0 0 0 2px var(--ink)}
+.turn{text-align:center;font-family:var(--display);font-weight:700;font-size:1.4rem;margin:0;display:flex;align-items:center;justify-content:center;gap:10px}
+.turn i{width:24px;height:24px;border-radius:50%;display:inline-block}
+.score{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:560px;margin:0 auto;width:100%}
+.score .stat{align-items:center}
+.score .s1 b{color:var(--p1)} .score .s2 b{color:color-mix(in srgb,var(--p2) 75%,var(--ink))}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="page">
+  <div class="top"><div><h1>Connect Four</h1><p class="sub">Drop your counters. Get four in a row across, down or slanting to win.</p></div></div>
+  <div class="seg" role="group" aria-label="Who is playing">
+    <button data-opp="easy" aria-pressed="true">vs Computer<small>Easy</small></button>
+    <button data-opp="medium" aria-pressed="false">vs Computer<small>Medium</small></button>
+    <button data-opp="hard" aria-pressed="false">vs Computer<small>Hard</small></button>
+    <button data-opp="pvp" aria-pressed="false">2 Players<small>Same device</small></button>
+  </div>
+  <div class="score">
+    <div class="stat s1"><span id="n1">You (red)</span><b id="w1">0</b></div>
+    <div class="stat"><span>Draws</span><b id="wd">0</b></div>
+    <div class="stat s2"><span id="n2">Computer (yellow)</span><b id="w2">0</b></div>
+  </div>
+  <p class="turn" id="turn" aria-live="polite"></p>
+  <div class="wrap"><div class="board" id="board"></div></div>
+  <div class="row"><button class="btn" id="again">New game</button><button class="btn ghost" id="resetScore">Reset scores</button></div>
+</div>
+<script src="common.js"></script>
+<script>
+(function(){
+const {$, sound, confetti, store} = GC;
+const W=7,H=6;
+let opp=store.get('c4-opp','easy'), g, turn=1, first=1, over=false, busy=false, tally;
+const key=()=>'c4-score-'+(opp==='pvp'?'pvp':'cpu-'+opp);
+const names=()=>opp==='pvp'?{1:'Player 1',2:'Player 2'}:{1:'You',2:'Computer'};
+const idx=(c,r)=>c*H+r; // r=0 is bottom
+function dropRow(s,c){ for(let r=0;r<H;r++) if(!s[idx(c,r)]) return r; return -1; }
+function winLine(s){
+  const D=[[1,0],[0,1],[1,1],[1,-1]];
+  for(let c=0;c<W;c++) for(let r=0;r<H;r++){ const p=s[idx(c,r)]; if(!p) continue;
+    for(const [dc,dr] of D){ const cells=[[c,r]]; for(let k=1;k<4;k++){ const cc=c+dc*k, rr=r+dr*k; if(cc<0||cc>=W||rr<0||rr>=H||s[idx(cc,rr)]!==p) break; cells.push([cc,rr]); } if(cells.length===4) return {p,cells}; } }
+  return s.every(Boolean)?{p:0}:null;
+}
+function scoreWindow(w,p){ const o=3-p, mp=w.filter(x=>x===p).length, op=w.filter(x=>x===o).length, e=w.filter(x=>!x).length;
+  if(mp===4) return 1000; if(mp===3&&e===1) return 6; if(mp===2&&e===2) return 2; if(op===3&&e===1) return -8; return 0; }
+function heur(s,p){ let sc=0;
+  for(let r=0;r<H;r++) if(s[idx(3,r)]===p) sc+=3;
+  const D=[[1,0],[0,1],[1,1],[1,-1]];
+  for(let c=0;c<W;c++) for(let r=0;r<H;r++) for(const [dc,dr] of D){ const ce=c+dc*3, re=r+dr*3; if(ce<0||ce>=W||re<0||re>=H) continue; sc+=scoreWindow([0,1,2,3].map(k=>s[idx(c+dc*k,r+dr*k)]),p); }
+  return sc; }
+const ORDER=[3,2,4,1,5,0,6];
+function negamax(s,depth,a,b,p){
+  const w=winLine(s); if(w) return w.p===0?0:(w.p===2?1:-1)*(10000+depth)*(p===2?1:-1);
+  if(depth===0) return (p===2?1:-1)*(heur(s,2)-heur(s,1));
+  let best=-Infinity;
+  for(const c of ORDER){ const r=dropRow(s,c); if(r<0) continue; s[idx(c,r)]=p; const v=-negamax(s,depth-1,-b,-a,3-p); s[idx(c,r)]=0; if(v>best) best=v; if(v>a) a=v; if(a>=b) break; }
+  return best;
+}
+function cpuMove(){
+  const legal=ORDER.filter(c=>dropRow(g,c)>=0);
+  const winsFor=p=>legal.find(c=>{ const s=g.slice(); s[idx(c,dropRow(s,c))]=p; const w=winLine(s); return w&&w.p===p; });
+  if(opp==='easy'){ const w=winsFor(2); if(w!==undefined&&Math.random()<.5) return w; return legal[Math.floor(Math.random()*legal.length)]; }
+  if(opp==='medium'){ const w=winsFor(2); if(w!==undefined) return w; const bl=winsFor(1); if(bl!==undefined) return bl;
+    const safe=legal.filter(c=>{ const s=g.slice(); s[idx(c,dropRow(s,c))]=2; return !ORDER.some(c2=>{ const r2=dropRow(s,c2); if(r2<0) return false; const t=s.slice(); t[idx(c2,r2)]=1; const w=winLine(t); return w&&w.p===1; }); });
+    const pool=safe.length?safe:legal; return Math.random()<.5?pool[0]:pool[Math.floor(Math.random()*pool.length)]; }
+  let best=-Infinity, pick=legal[0];
+  for(const c of legal){ const s=g.slice(); s[idx(c,dropRow(s,c))]=2; const v=-negamax(s,5,-Infinity,Infinity,1); if(v>best){best=v;pick=c;} }
+  return pick;
+}
+function build(){
+  const bd=$('board'); bd.innerHTML='';
+  for(let c=0;c<W;c++){ const col=document.createElement('button'); col.className='col'; col.id='col'+c; col.setAttribute('aria-label','Drop in column '+(c+1));
+    for(let r=H-1;r>=0;r--){ const h=document.createElement('div'); h.className='h'; h.id=`h${c}_${r}`; col.appendChild(h); }
+    col.onclick=()=>human(c); bd.appendChild(col); }
+}
+function render(win){
+  const n=names();
+  for(let c=0;c<W;c++){ $('col'+c).disabled=over||busy||dropRow(g,c)<0||(opp!=='pvp'&&turn===2); }
+  if(win&&win.cells) win.cells.forEach(([c,r])=>$(`h${c}_${r}`).classList.add('win'));
+  $('n1').textContent=n[1]+' (red)'; $('n2').textContent=n[2]+' (yellow)';
+  $('w1').textContent=tally[1]; $('w2').textContent=tally[2]; $('wd').textContent=tally[0];
+  if(!over) $('turn').innerHTML=`<i style="background:var(--p${turn})"></i>${n[turn]==='You'?'Your':n[turn]+'’s'} turn`;
+}
+function place(c){
+  const r=dropRow(g,c); if(r<0) return false;
+  g[idx(c,r)]=turn; const h=$(`h${c}_${r}`); h.innerHTML=`<i class="p${turn} drop" style="--d:${H-r}"></i>`; sound.tap();
+  const w=winLine(g); if(w){ end(w); return true; }
+  turn=3-turn; render(); return true;
+}
+function human(c){
+  if(over||busy||(opp!=='pvp'&&turn===2)) return;
+  if(!place(c)||over) return;
+  if(opp!=='pvp'&&turn===2){ busy=true; render(); setTimeout(()=>{ busy=false; place(cpuMove()); },450); }
+}
+function end(w){
+  over=true; tally[w.p]++; store.set(key(),tally); const n=names();
+  if(w.p===0) $('turn').textContent="It's a draw!";
+  else { $('turn').innerHTML=`<i style="background:var(--p${w.p})"></i>${n[w.p]==='You'?'You win!':n[w.p]+' wins!'}`; if(opp==='pvp'||w.p===1){ sound.win(); confetti(); } else sound.lose(); }
+  render(w);
+}
+function newGame(){
+  g=Array(W*H).fill(0); over=false; busy=false; turn=first; first=3-first; build(); render();
+  if(opp!=='pvp'&&turn===2){ busy=true; render(); setTimeout(()=>{ busy=false; place(cpuMove()); },500); }
+}
+function setOpp(o){ opp=o; store.set('c4-opp',o); tally=store.get(key(),{0:0,1:0,2:0}); first=1; document.querySelectorAll('[data-opp]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.opp===o))); newGame(); }
+document.querySelectorAll('[data-opp]').forEach(x=>x.onclick=()=>setOpp(x.dataset.opp));
+$('again').onclick=newGame;
+$('resetScore').onclick=()=>{ tally={0:0,1:0,2:0}; store.set(key(),tally); render(); };
+setOpp(opp);
+})();
+</script>
+</body>
+</html>

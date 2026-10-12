@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spelling Bee</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+:root{--accent:#d99100;--accentInk:#2b1d00}
+@media (prefers-color-scheme: dark){:root{--accent:#ffc23d;--accentInk:#2b1d00}}
+.levels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.lvl{background:var(--card);border:3px solid var(--line);border-radius:16px;padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.lvl .n{font-family:var(--display);font-weight:800;font-size:2rem;line-height:1;color:var(--accent)}
+.lvl .t{font-size:.75rem;font-weight:800;color:var(--muted);text-align:center}
+.lvl .st{font-size:.9rem;letter-spacing:2px;color:var(--sun)}
+.lvl.locked{border-style:dashed;background:transparent;cursor:not-allowed}
+.lvl.locked .n{color:var(--line)}
+.lvl.next{border-color:var(--accent);box-shadow:0 4px 0 var(--accent)}
+.play{background:var(--card);border:3px solid var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
+.dots{display:flex;gap:6px;width:100%}
+.dots i{flex:1;height:10px;border-radius:5px;background:var(--soft)}
+.dots i.good{background:var(--good)} .dots i.bad{background:var(--bad)} .dots i.now{background:var(--accent)}
+.hear{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.clue{margin:0;font-weight:800;font-size:1.1rem}
+.sentence{margin:0;font-weight:700;color:var(--muted);font-size:1.05rem;max-width:44ch}
+.slots{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;min-height:56px}
+.slot{width:42px;height:52px;border-radius:10px;border:3px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:1.7rem;text-transform:uppercase;background:var(--bg)}
+.slot.cur{border-color:var(--accent)}
+.slot.ok{border-color:var(--good);background:var(--goodBg);color:var(--good)}
+.slot.no{border-color:var(--bad);background:var(--badBg);color:var(--bad)}
+@media (max-width:440px){.slot{width:30px;height:42px;font-size:1.3rem;border-width:2px}}
+.kb{display:flex;flex-direction:column;gap:6px;width:100%;max-width:520px}
+.kb div{display:flex;gap:5px;justify-content:center}
+.kb button{flex:1;max-width:46px;font-family:var(--display);font-weight:800;font-size:1.2rem;padding:10px 0;border-radius:10px;border:2px solid var(--line);background:var(--card);text-transform:uppercase}
+.kb button.wide{max-width:96px;flex:2;font-size:.95rem}
+.kb button:active{transform:scale(.94)}
+.feedback{margin:0;font-family:var(--display);font-size:1.25rem;font-weight:700;min-height:1.5em}
+.feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="page">
+  <div class="top"><div><h1>Spelling Bee</h1><p class="sub">Listen to the word, then spell it. 8 levels from short words to tricky ones.</p></div></div>
+
+  <section id="map">
+    <div class="levels" id="levels"></div>
+    <p class="sub" style="margin-top:12px">Spell 6 or more right to open the next level. Each word gets 2 tries.</p>
+  </section>
+
+  <section class="play" id="play" hidden>
+    <div style="display:flex;justify-content:space-between;width:100%;align-items:center;gap:8px">
+      <button class="btn ghost" id="back">&larr; Levels</button>
+      <b id="lvlTag" style="font-family:var(--display);font-size:1.2rem;color:var(--accent)">Level 1</b>
+    </div>
+    <div class="dots" id="dots"></div>
+    <div class="hear">
+      <button class="btn" id="say">Hear the word</button>
+      <button class="btn ghost" id="slow">Say it slowly</button>
+    </div>
+    <p class="clue" id="clue"></p>
+    <p class="sentence" id="sentence"></p>
+    <div class="slots" id="slots" aria-live="polite"></div>
+    <p class="feedback" id="fb"></p>
+    <div class="kb" id="kb"></div>
+  </section>
+
+  <section class="result" id="result" hidden>
+    <h2 id="rTitle">Level complete!</h2>
+    <div class="big" id="rScore">8 out of 10</div>
+    <p id="rText"></p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <button class="btn" id="rNext">Next level</button>
+      <button class="btn ghost" id="rRetry">Try again</button>
+      <button class="btn ghost" id="rMap">All levels</button>
+    </div>
+  </section>
+</div>
+<script src="common.js"></script>
+<script>
+(function(){
+const {$, sound, speak, canSpeak, confetti, store, shuffle} = GC;
+/* [word, clue, sentence] */
+const LEVELS=[
+ {name:'Tiny words',w:[['cat','A pet that says meow.','The cat sat on the mat.'],['dog','A pet that barks.','My dog loves to run.'],['sun','It shines in the day sky.','The sun is very hot today.'],['hat','You wear it on your head.','He wore a red hat.'],['bed','You sleep in it.','I go to bed at nine.'],['cup','You drink tea from it.','Pour milk into the cup.'],['red','The colour of a tomato.','The apple is red.'],['pen','You write with it.','Please lend me a pen.'],['bus','A big vehicle that carries many people.','We go to school by bus.'],['map','It shows you where places are.','Look at the map to find the way.']]},
+ {name:'Four letters',w:[['fish','It swims in water.','The fish swam in the pond.'],['frog','A green animal that hops.','The frog jumped into the lake.'],['milk','A white drink from cows.','I drink milk every morning.'],['cake','A sweet treat for birthdays.','Mum baked a chocolate cake.'],['tree','It has a trunk and leaves.','A bird sat in the tree.'],['star','It twinkles in the night sky.','I saw a bright star.'],['ship','A very big boat.','The ship sailed across the sea.'],['ball','You kick or throw it.','Throw the ball to me.'],['book','You read it.','This book has nice pictures.'],['rain','Water falling from clouds.','Take an umbrella, it may rain.']]},
+ {name:'Five letters',w:[['apple','A red or green fruit.','An apple a day is good for you.'],['house','A building where a family lives.','Our house has a blue door.'],['water','You drink it when you are thirsty.','Please drink some water.'],['chair','You sit on it.','Pull up a chair and sit down.'],['plant','It grows in soil.','Water the plant every day.'],['horse','An animal you can ride.','The horse ran across the field.'],['bread','You make sandwiches with it.','We had bread and butter.'],['smile','What your face does when you are happy.','She has a lovely smile.'],['green','The colour of grass.','The leaves are green.'],['train','It runs on tracks.','The train left the station.']]},
+ {name:'Six letters',w:[['school','The place where you learn.','I walk to school with my friend.'],['friend','Someone you like to play with.','Ravi is my best friend.'],['garden','A place with flowers and plants.','We planted roses in the garden.'],['yellow','The colour of a banana.','The sunflower is yellow.'],['flower','A rose is one of these.','She picked a flower for her mum.'],['mother','Another word for mum.','My mother reads me stories.'],['window','You look out through it.','Open the window to let air in.'],['orange','A fruit and also a colour.','I peeled an orange.'],['pencil','You draw with it.','Sharpen your pencil before the test.'],['rabbit','An animal with long ears.','The rabbit ate a carrot.']]},
+ {name:'Getting longer',w:[['because','A word that gives a reason.','I wore a coat because it was cold.'],['morning','The early part of the day.','I brush my teeth every morning.'],['kitchen','The room where food is cooked.','Dad is cooking in the kitchen.'],['holiday','Days off from school.','We went to Goa for the holiday.'],['picture','A drawing or a photo.','She drew a picture of a cat.'],['animal','A lion is one of these.','The elephant is a huge animal.'],['chicken','A bird that lays eggs.','The chicken laid an egg.'],['number','Seven is one of these.','Pick a number from one to ten.'],['teacher','The person who helps you learn.','Our teacher told us a story.'],['weather','Sunny, rainy or windy.','The weather is nice today.']]},
+ {name:'Big words',w:[['elephant','A huge animal with a trunk.','The elephant sprayed water with its trunk.'],['beautiful','Very pretty.','What a beautiful sunset!'],['birthday','The day you were born, every year.','Happy birthday to you!'],['butterfly','An insect with colourful wings.','A butterfly landed on the flower.'],['together','With each other.','Let us play together.'],['children','More than one child.','The children played in the park.'],['favourite','The one you like best.','Blue is my favourite colour.'],['different','Not the same.','The twins wore different shirts.'],['tomorrow','The day after today.','We have a test tomorrow.'],['remember','To keep something in your mind.','Remember to bring your bag.']]},
+ {name:'Tricky ones',w:[['library','A place full of books to borrow.','We borrowed books from the library.'],['february','The second month of the year.','My birthday is in February.'],['wednesday','The day after Tuesday.','We have music on Wednesday.'],['science','The subject where you do experiments.','We grew beans in science class.'],['island','Land with water all around it.','They sailed to a small island.'],['knife','You cut food with it.','Use a knife to cut the bread.'],['answer','What you give to a question.','Do you know the answer?'],['believe','To think something is true.','I believe you can do it.'],['autumn','The season when leaves fall.','Leaves turn brown in autumn.'],['guitar','A musical instrument with strings.','He plays the guitar.']]},
+ {name:'Champion',w:[['difficult','Hard to do.','This puzzle is difficult.'],['necessary','Needed.','Water is necessary for life.'],['restaurant','A place where you buy a meal.','We ate dinner at a restaurant.'],['vegetable','A carrot is one of these.','Eat your vegetable curry.'],['dinosaur','A giant animal from long ago.','The dinosaur had sharp teeth.'],['adventure','An exciting journey.','We went on an adventure in the forest.'],['delicious','Very tasty.','The mango was delicious.'],['important','It matters a lot.','Sleep is important for growing.'],['beginning','The start.','Read from the beginning.'],['environment','The world around us, like air, water and trees.','Let us keep our environment clean.']]}
+];
+let best=store.get('sb-best',[]); if(!Array.isArray(best)) best=[];
+const starsFor=s=>s>=10?3:s>=8?2:s>=6?1:0;
+const open=i=>i===0||(best[i-1]??-1)>=6;
+let L=0, words=[], wi=0, typed='', tries=0, score=0, res=[], busy=false;
+
+function show(id){ for(const s of ['map','play','result']) $(s).hidden=s!==id; window.scrollTo(0,0); }
+function renderMap(){
+  const box=$('levels'); box.innerHTML='';
+  const nxt=LEVELS.findIndex((_,i)=>open(i)&&(best[i]??-1)<6);
+  LEVELS.forEach((lv,i)=>{
+    const b=document.createElement('button'); b.className='lvl'+(open(i)?'':' locked')+(i===nxt?' next':'');
+    const st=starsFor(best[i]??-1);
+    b.innerHTML=`<span class="n">${i+1}</span><span class="t"></span><span class="st">${'★'.repeat(st)}<span style="color:var(--line)">${'★'.repeat(3-st)}</span></span>`;
+    b.querySelector('.t').textContent=open(i)?lv.name:'Locked';
+    b.onclick=()=>{ if(open(i)) startLevel(i); };
+    box.appendChild(b);
+  });
+}
+function startLevel(i){ L=i; words=shuffle(LEVELS[i].w); wi=0; score=0; res=[]; $('lvlTag').textContent=`Level ${i+1} · ${LEVELS[i].name}`; show('play'); loadWord(); }
+function loadWord(){
+  typed=''; tries=0; busy=false;
+  const [w,clue,sen]=words[wi];
+  $('clue').textContent=clue;
+  $('sentence').textContent=sen.replace(new RegExp(w,'i'),'_'.repeat(Math.min(w.length,8)));
+  $('fb').textContent=''; $('fb').className='feedback';
+  dots(); slots(); setTimeout(()=>say(false),300);
+}
+function say(slow){ const [w,,sen]=words[wi]; if(!speak(slow? w.split('').join(' ... ')+'. '+w : `${w}. ${sen} ${w}.`, slow?.6:.85) && !canSpeak){ $('fb').textContent='Ask a grown-up to read the word, or use the clue.'; } }
+function dots(){ $('dots').innerHTML=words.map((_,k)=>`<i class="${k<res.length?(res[k]?'good':'bad'):(k===wi?'now':'')}"></i>`).join(''); }
+function slots(marks){
+  const w=words[wi][0], box=$('slots'); box.innerHTML='';
+  for(let k=0;k<w.length;k++){ const s=document.createElement('div'); s.className='slot'+(k===typed.length&&!marks?' cur':'')+(marks?(marks[k]?' ok':' no'):''); s.textContent=typed[k]||''; box.appendChild(s); }
+}
+function press(k){
+  if(busy) return; const w=words[wi][0];
+  if(k==='del'){ typed=typed.slice(0,-1); slots(); return; }
+  if(k==='ok'){ check(); return; }
+  if(typed.length>=w.length) return;
+  typed+=k; sound.tap(); slots();
+  if(typed.length===w.length) setTimeout(check,250);
+}
+function check(){
+  const w=words[wi][0]; if(typed.length<w.length||busy) return;
+  const marks=[...w].map((c,k)=>typed[k]===c);
+  if(typed===w){ busy=true; score++; res.push(true); slots(marks); sound.good(); $('fb').textContent=tries? 'Yes, got it on the second try!':'Perfect spelling!'; $('fb').className='feedback good'; setTimeout(nextWord,1200); return; }
+  tries++; sound.bad(); slots(marks);
+  if(tries<2){ busy=true; $('fb').textContent='Almost! The green letters are right. Try again.'; $('fb').className='feedback bad'; setTimeout(()=>{ typed=[...typed].map((c,k)=>marks[k]?c:'').join('').slice(0, marks.indexOf(false)); busy=false; slots(); },1300); }
+  else { busy=true; res.push(false); $('fb').textContent=`It is spelled ${w.toUpperCase()}.`; $('fb').className='feedback bad'; speak(w.split('').join(', ')); setTimeout(nextWord,2400); }
+}
+function nextWord(){ wi++; if(wi<words.length) loadWord(); else finish(); }
+function finish(){
+  if(score>(best[L]??-1)){ best[L]=score; store.set('sb-best',best); }
+  const pass=score>=6;
+  $('rTitle').textContent=score===10?'Perfect speller!':pass?'Level complete!':'Nice try!';
+  $('rScore').textContent=`${score} out of 10`;
+  $('rText').textContent='★'.repeat(starsFor(score))+(pass?(L<LEVELS.length-1?`  Level ${L+2} is open!`:'  You finished every level!'):'  Get 6 right to open the next level.');
+  $('rNext').hidden=!(pass&&L<LEVELS.length-1);
+  show('result'); if(pass){ sound.win(); confetti(); } else sound.lose();
+}
+function buildKb(){
+  const rows=['qwertyuiop','asdfghjkl','zxcvbnm'];
+  $('kb').innerHTML='';
+  rows.forEach((r,ri)=>{ const d=document.createElement('div');
+    if(ri===2){ const b=document.createElement('button'); b.className='wide'; b.textContent='⌫'; b.setAttribute('aria-label','Delete'); b.onclick=()=>press('del'); d.appendChild(b); }
+    [...r].forEach(c=>{ const b=document.createElement('button'); b.textContent=c; b.onclick=()=>press(c); d.appendChild(b); });
+    if(ri===2){ const b=document.createElement('button'); b.className='wide'; b.textContent='Check'; b.onclick=()=>press('ok'); d.appendChild(b); }
+    $('kb').appendChild(d); });
+}
+document.addEventListener('keydown',e=>{ if($('play').hidden) return; if(/^[a-z]$/i.test(e.key)) press(e.key.toLowerCase()); else if(e.key==='Backspace') press('del'); else if(e.key==='Enter') press('ok'); });
+$('say').onclick=()=>say(false); $('slow').onclick=()=>say(true);
+$('back').onclick=()=>{ try{speechSynthesis.cancel();}catch(e){} renderMap(); show('map'); };
+$('rNext').onclick=()=>startLevel(L+1); $('rRetry').onclick=()=>startLevel(L); $('rMap').onclick=()=>{ renderMap(); show('map'); };
+if(!canSpeak){ $('say').hidden=true; $('slow').hidden=true; }
+buildKb(); renderMap();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Memory Match</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+:root{--accent:#d6338a;--back1:#d6338a;--back2:#f06aa9}
+@media (prefers-color-scheme: dark){:root{--accent:#ff6fb3;--accentInk:#2a0518;--back1:#a3256a;--back2:#d64a90}}
+.grid{display:grid;gap:10px;perspective:900px}
+.c{position:relative;aspect-ratio:3/4;border:0;padding:0;background:none;border-radius:14px}
+.c .in{position:absolute;inset:0;transition:transform .35s;transform-style:preserve-3d}
+.c.up .in,.c.done .in{transform:rotateY(180deg)}
+.c .f,.c .b{position:absolute;inset:0;border-radius:14px;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;align-items:center;justify-content:center}
+.c .b{background:repeating-linear-gradient(45deg,var(--back1) 0 10px,var(--back2) 10px 20px);border:3px solid var(--card);box-shadow:0 3px 0 color-mix(in srgb,var(--back1) 60%,#000)}
+.c .b::after{content:"?";font-family:var(--display);font-weight:800;font-size:2rem;color:#fff;opacity:.85}
+.c .f{background:var(--card);border:3px solid var(--line);transform:rotateY(180deg);font-size:clamp(1.8rem,8vw,3rem)}
+.c.done .f{border-color:var(--good);background:var(--goodBg)}
+.c.done{animation:popIn .3s}
+.c.miss .f{border-color:var(--bad);animation:shake .35s}
+.grid.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.grid.g6{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media (max-width:520px){.grid.g6{grid-template-columns:repeat(4,minmax(0,1fr))}.grid{gap:7px}}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+.side{display:flex;flex-direction:column;gap:12px}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="page wide">
+  <div class="top"><div><h1>Memory Match</h1><p class="sub">Flip two cards. Find all the pairs in as few moves as you can.</p></div></div>
+  <div class="layout">
+    <main style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div class="seg" role="group" aria-label="Size">
+        <button data-size="easy" aria-pressed="true">Easy<small>6 pairs</small></button>
+        <button data-size="medium" aria-pressed="false">Medium<small>8 pairs</small></button>
+        <button data-size="hard" aria-pressed="false">Hard<small>12 pairs</small></button>
+      </div>
+      <div class="seg" role="group" aria-label="Theme">
+        <button data-theme="animals" aria-pressed="true">Animals</button>
+        <button data-theme="food" aria-pressed="false">Fruits</button>
+        <button data-theme="vehicles" aria-pressed="false">Vehicles</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>Moves</span><b id="moves">0</b></div>
+        <div class="stat"><span>Pairs</span><b id="pairs">0/6</b></div>
+        <div class="stat"><span>Time</span><b id="time">0:00</b></div>
+        <button class="btn ghost" id="restart" style="margin-left:auto">New game</button>
+      </div>
+      <div class="grid g4" id="grid"></div>
+      <p class="msg" id="msg">Tap any card to start. The clock starts on your first flip.</p>
+      <section class="result" id="result" hidden>
+        <h2>All pairs found!</h2>
+        <div class="big" id="rMoves">0 moves</div>
+        <p id="rText"></p>
+        <form class="nameForm" id="nameForm" autocomplete="off"><label for="nameIn">Type your name for the Top 10</label><input id="nameIn" maxlength="16" placeholder="Your name" required><button class="btn" type="submit">Save</button></form>
+        <button class="btn big" id="again">Play again</button>
+      </section>
+    </main>
+    <aside class="side card top10">
+      <h3 id="lbTitle">Top 10 · Easy</h3>
+      <div class="seg" role="tablist" id="lbTabs">
+        <button data-lb="easy" aria-selected="true">Easy</button><button data-lb="medium" aria-selected="false">Medium</button><button data-lb="hard" aria-selected="false">Hard</button>
+      </div>
+      <div id="lb"></div>
+      <p class="sub" style="font-size:.85rem">Fewest moves wins. If moves are equal, the faster time wins.</p>
+    </aside>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+(function(){
+const {$, sound, confetti, fmtTime, shuffle, board, tableHTML, nameForm} = GC;
+const THEMES={
+  animals:['🐶','🐱','🐰','🦊','🐻','🐼','🐯','🦁','🐸','🐵','🐧','🐘'],
+  food:['🍎','🍌','🍇','🍉','🍓','🍒','🍍','🥭','🍑','🥥','🍋','🥕'],
+  vehicles:['🚗','🚌','🚑','🚒','🚓','🚜','🚲','🚀','🚁','🚂','⛵','✈️']
+};
+const SIZES={easy:{pairs:6,cls:'g4'},medium:{pairs:8,cls:'g4'},hard:{pairs:12,cls:'g6'}};
+const NAMES={easy:'Easy',medium:'Medium',hard:'Hard'};
+let size='easy', theme='animals', cards=[], open=[], moves=0, found=0, lock=false, t0=0, timer=null, secs=0, lbSize='easy';
+const boards={}; for(const s in SIZES) boards[s]=board({key:'mm-top-'+s, better:(a,b)=>a.m-b.m||a.s-b.s, show:e=>`${e.m} · ${fmtTime(e.s)}`});
+$('lb').innerHTML=tableHTML('Moves · Time');
+
+function newGame(){
+  clearInterval(timer); timer=null; t0=0; secs=0; moves=0; found=0; open=[]; lock=false;
+  const n=SIZES[size].pairs, pics=shuffle(THEMES[theme]).slice(0,n);
+  cards=shuffle([...pics,...pics]);
+  const g=$('grid'); g.className='grid '+SIZES[size].cls; g.innerHTML='';
+  cards.forEach((p,i)=>{
+    const b=document.createElement('button'); b.className='c'; b.id='c'+i; b.setAttribute('aria-label','Hidden card');
+    b.innerHTML='<div class="in"><div class="b"></div><div class="f"></div></div>'; b.querySelector('.f').textContent=p;
+    b.onclick=()=>flip(i); g.appendChild(b);
+  });
+  $('result').hidden=true; $('grid').hidden=false;
+  $('msg').textContent='Tap any card to start. The clock starts on your first flip.'; $('msg').className='msg';
+  stats(); showBoard(size);
+}
+function stats(){ $('moves').textContent=moves; $('pairs').textContent=`${found}/${SIZES[size].pairs}`; $('time').textContent=fmtTime(secs); }
+function flip(i){
+  const el=$('c'+i);
+  if(lock || el.classList.contains('up') || el.classList.contains('done')) return;
+  if(!t0){ t0=Date.now(); timer=setInterval(()=>{ secs=(Date.now()-t0)/1000; stats(); },250); }
+  sound.tap(); el.classList.add('up'); el.setAttribute('aria-label',cards[i]); open.push(i);
+  if(open.length<2) return;
+  moves++; const [a,b]=open; open=[];
+  if(cards[a]===cards[b]){
+    found++; ['c'+a,'c'+b].forEach(id=>{ $(id).classList.remove('up'); $(id).classList.add('done'); });
+    sound.good(); $('msg').textContent='A match!'; $('msg').className='msg good';
+    if(found===SIZES[size].pairs) setTimeout(win,500);
+  } else {
+    lock=true; sound.bad(); $('msg').textContent='Not a match. Try to remember where they are!'; $('msg').className='msg';
+    [a,b].forEach(k=>$('c'+k).classList.add('miss'));
+    setTimeout(()=>{ [a,b].forEach(k=>{ const e=$('c'+k); e.classList.remove('up','miss'); e.setAttribute('aria-label','Hidden card'); }); lock=false; },900);
+  }
+  stats();
+}
+function win(){
+  clearInterval(timer); secs=(Date.now()-t0)/1000; stats();
+  const s=Math.round(secs), perfect=moves===SIZES[size].pairs;
+  $('rMoves').textContent=`${moves} moves`;
+  $('rText').textContent=`${NAMES[size]} · ${fmtTime(s)}`+(perfect?' · A perfect game!':'');
+  $('grid').hidden=true; $('result').hidden=false; $('msg').textContent='';
+  sound.win(); confetti();
+  const sz=size, m=moves;
+  nameForm($('nameForm'),$('nameIn'),n=>{
+    const rank=boards[sz].add({n,m,s});
+    showBoard(sz,rank);
+    $('rText').textContent = rank>=0 ? (rank===0?`New record, ${n}! You're number 1!`:`Great job, ${n}! You're number ${rank+1} in the Top 10.`) : `Well done, ${n}! Keep practising to reach the Top 10.`;
+  });
+}
+function showBoard(s,highlight){
+  lbSize=s; $('lbTitle').textContent='Top 10 · '+NAMES[s];
+  document.querySelectorAll('#lbTabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.lb===s)));
+  boards[s].render($('lb').querySelector('tbody'),$('lb').querySelector('.empty'),highlight??-1);
+}
+document.querySelectorAll('[data-size]').forEach(b=>b.onclick=()=>{ size=b.dataset.size; document.querySelectorAll('[data-size]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); newGame(); });
+document.querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>{ theme=b.dataset.theme; document.querySelectorAll('[data-theme]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); newGame(); });
+document.querySelectorAll('#lbTabs button').forEach(b=>b.onclick=()=>showBoard(b.dataset.lb));
+$('restart').onclick=newGame; $('again').onclick=newGame;
+newGame();
+})();
+</script>
+</body>
+</html>

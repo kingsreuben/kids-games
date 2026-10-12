@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Balloon Words</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css">
+<style>
+:root{--accent:#0ca678;--sky:#d0ebff;--b1:#ff6b6b;--b2:#ffd43b;--b3:#69db7c;--b4:#4dabf7;--b5:#da77f2;--b6:#ff922b;--basket:#a0522d}
+@media (prefers-color-scheme: dark){:root{--accent:#38d9a9;--accentInk:#03271c;--sky:#1b2f45;--basket:#c27a47}}
+.scene{background:var(--sky);border-radius:22px;border:3px solid var(--line);position:relative;overflow:hidden}
+.scene svg{display:block;width:100%;height:auto}
+.balloon{transition:transform 1.4s ease-in,opacity 1.4s ease-in;transform-box:fill-box;transform-origin:center}
+.balloon.gone{transform:translateY(-140%) scale(.7);opacity:0}
+.cat{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap}
+.cat span{font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.cat b{font-family:var(--display);font-size:1.4rem;color:var(--accent)}
+.word{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.word .l{width:40px;height:52px;border-bottom:5px solid var(--ink);display:flex;align-items:flex-end;justify-content:center;font-family:var(--display);font-weight:800;font-size:2rem;line-height:1.2;text-transform:uppercase}
+.word .l.show{animation:popIn .25s}
+.word .l.miss{color:var(--bad)}
+.word .gap{width:16px;border:0}
+@media (max-width:440px){.word .l{width:28px;height:42px;font-size:1.5rem}.word{gap:5px}}
+.kb{display:flex;flex-direction:column;gap:6px;width:100%;max-width:560px;margin:0 auto}
+.kb div{display:flex;gap:5px;justify-content:center}
+.kb button{flex:1;max-width:48px;font-family:var(--display);font-weight:800;font-size:1.25rem;padding:10px 0;border-radius:10px;border:2px solid var(--line);background:var(--card);text-transform:uppercase}
+.kb button.ok{background:var(--goodBg);border-color:var(--good);color:var(--good)}
+.kb button.no{background:var(--soft);color:var(--muted);opacity:.6}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./">&larr; All games</a>
+<div class="page">
+  <div class="top"><div><h1>Balloon Words</h1><p class="sub">Guess the word one letter at a time. Each wrong letter lets a balloon float away!</p></div>
+    <div class="stats"><div class="stat"><span>Solved</span><b id="solved">0</b></div><div class="stat"><span>Streak</span><b id="streak">0</b></div></div>
+  </div>
+  <div class="seg" role="group" aria-label="Topic" id="topics"></div>
+  <div class="scene"><svg viewBox="0 0 400 210" id="sky" aria-hidden="true"></svg></div>
+  <div class="cat"><span>Topic</span><b id="catName">Animals</b><span id="left">6 balloons left</span></div>
+  <div class="word" id="word" aria-live="polite"></div>
+  <p class="msg" id="msg">Pick a letter.</p>
+  <div class="kb" id="kb"></div>
+  <div class="row"><button class="btn" id="next">New word</button><button class="btn ghost" id="hint">Show a letter</button></div>
+</div>
+<script src="common.js"></script>
+<script>
+(function(){
+const {$, sound, confetti, store, shuffle} = GC;
+const WORDS={
+  Animals:['ELEPHANT','GIRAFFE','MONKEY','PENGUIN','KANGAROO','TIGER','RABBIT','DOLPHIN','SQUIRREL','TORTOISE','PEACOCK','BUTTERFLY','CROCODILE','CAMEL','PARROT'],
+  Food:['MANGO','BANANA','SANDWICH','PIZZA','CHAPATI','PANEER','PANCAKE','COCONUT','POPCORN','BISCUIT','NOODLES','PINEAPPLE','SAMOSA','IDLI','CARROT'],
+  Places:['SCHOOL','GARDEN','KITCHEN','LIBRARY','HOSPITAL','BEACH','FOREST','MOUNTAIN','MARKET','ZOO','PLAYGROUND','STATION','DESERT','ISLAND','TEMPLE'],
+  Things:['UMBRELLA','PENCIL','BICYCLE','BALLOON','TELESCOPE','CANDLE','BACKPACK','CLOCK','LADDER','ROCKET','GUITAR','KITE','SCISSORS','TORCH','BLANKET'],
+  Space:['PLANET','ROCKET','ASTRONAUT','GALAXY','COMET','SATELLITE','JUPITER','SATURN','METEOR','MOON','TELESCOPE','ORBIT','NEPTUNE','SUNLIGHT','STAR']
+};
+const COLORS=['--b1','--b2','--b3','--b4','--b5','--b6'];
+let topic='Animals', word='', guessed=new Set(), wrong=0, done=false, bag={}, solved=store.get('bw-solved',0), streak=0;
+
+Object.keys(WORDS).forEach((t,i)=>{ const b=document.createElement('button'); b.textContent=t; b.dataset.t=t; b.setAttribute('aria-pressed',String(i===0)); b.onclick=()=>{ topic=t; document.querySelectorAll('#topics button').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); newWord(); }; $('topics').appendChild(b); });
+
+function drawSky(){
+  const xs=[110,150,190,230,270,310], ys=[70,45,60,40,65,50];
+  let s=`<circle cx="40" cy="35" r="22" fill="var(--b2)" opacity=".9"/>`;
+  s+=`<path d="M300 190q40-30 80 0z" fill="var(--b3)" opacity=".5"/><path d="M0 200q60-40 140 0z" fill="var(--b3)" opacity=".5"/>`;
+  xs.forEach((x,i)=>{ const y=ys[i];
+    s+=`<g class="balloon" id="bal${i}"><path d="M${x} ${y+30} Q${x-6} ${y+70} 210 150" fill="none" stroke="var(--muted)" stroke-width="1.5"/>`+
+       `<ellipse cx="${x}" cy="${y}" rx="22" ry="27" fill="var(${COLORS[i]})" stroke="rgba(0,0,0,.2)" stroke-width="1.5"/>`+
+       `<path d="M${x-4} ${y+26}l4 6 4-6z" fill="var(${COLORS[i]})"/><ellipse cx="${x-8}" cy="${y-10}" rx="5" ry="8" fill="#fff" opacity=".45"/></g>`; });
+  s+=`<path d="M182 150h56l-8 34h-40z" fill="var(--basket)" stroke="rgba(0,0,0,.25)" stroke-width="2"/><path d="M186 160h48M188 170h44" stroke="rgba(0,0,0,.2)" stroke-width="2"/>`;
+  s+=`<circle cx="210" cy="140" r="9" fill="#f1c27d"/><circle cx="207" cy="139" r="1.4" fill="#222"/><circle cx="213" cy="139" r="1.4" fill="#222"/><path d="M206 143q4 3 8 0" stroke="#222" stroke-width="1.3" fill="none"/>`;
+  $('sky').innerHTML=s;
+}
+function nextWordFor(t){ if(!bag[t]||!bag[t].length) bag[t]=shuffle(WORDS[t]); return bag[t].pop(); }
+function newWord(){
+  word=nextWordFor(topic); guessed=new Set(); wrong=0; done=false;
+  drawSky(); $('catName').textContent=topic; renderWord(); renderKb(); left();
+  say(`The word has ${word.length} letters. Pick a letter.`);
+}
+function left(){ $('left').textContent=`${6-wrong} balloon${6-wrong===1?'':'s'} left`; }
+function say(t,c){ $('msg').textContent=t; $('msg').className='msg'+(c?' '+c:''); }
+function renderWord(reveal){
+  $('word').innerHTML='';
+  [...word].forEach(ch=>{ const d=document.createElement('div'); d.className='l';
+    if(guessed.has(ch)){ d.textContent=ch; d.classList.add('show'); } else if(reveal){ d.textContent=ch; d.classList.add('miss'); }
+    $('word').appendChild(d); });
+}
+function renderKb(){
+  const rows=['QWERTYUIOP','ASDFGHJKL','ZXCVBNM']; $('kb').innerHTML='';
+  rows.forEach(r=>{ const d=document.createElement('div');
+    [...r].forEach(c=>{ const b=document.createElement('button'); b.textContent=c; b.id='k'+c;
+      if(guessed.has(c)) b.className=word.includes(c)?'ok':'no'; b.disabled=guessed.has(c)||done; b.onclick=()=>guess(c); d.appendChild(b); });
+    $('kb').appendChild(d); });
+}
+function guess(c){
+  if(done||guessed.has(c)) return; guessed.add(c);
+  if(word.includes(c)){ sound.good(); const n=[...word].filter(x=>x===c).length; say(n>1?`Yes! There are ${n} ${c}s.`:`Yes! ${c} is in the word.`,'good'); }
+  else { wrong++; sound.pop(); $('bal'+(6-wrong)).classList.add('gone'); left(); say(`No ${c}. A balloon floated away!`,'bad'); }
+  renderWord(); renderKb();
+  if([...word].every(ch=>guessed.has(ch))) win();
+  else if(wrong>=6) lose();
+}
+function win(){ done=true; solved++; streak++; store.set('bw-solved',solved); upd(); say(`You got it: ${word}!`,'good'); sound.win(); confetti(); renderKb(); }
+function lose(){ done=true; streak=0; upd(); renderWord(true); renderKb(); say(`All the balloons flew away! The word was ${word}.`,'bad'); sound.lose(); }
+function upd(){ $('solved').textContent=solved; $('streak').textContent=streak; }
+$('hint').onclick=()=>{ if(done) return; const miss=[...new Set(word)].filter(c=>!guessed.has(c)); if(miss.length>1){ guess(miss[Math.floor(Math.random()*miss.length)]); } else say('Only one letter left. You can do it!'); };
+$('next').onclick=newWord;
+document.addEventListener('keydown',e=>{ if(/^[a-z]$/i.test(e.key)) guess(e.key.toUpperCase()); else if(e.key==='Enter'&&done) newWord(); });
+upd(); newWord();
+})();
+</script>
+</body>
+</html>
