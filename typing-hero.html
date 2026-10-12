@@ -44,6 +44,7 @@ main{display:flex;flex-direction:column;gap:12px;min-width:0}
         <div class="stat"><span>Score</span><b id="score">0</b></div>
         <div class="stat"><span>Lives</span><b class="hearts" id="lives">♥♥♥♥♥</b></div>
         <div class="stat"><span>Speed</span><b id="speed">1</b></div>
+        <button class="btn ghost" id="restart" style="margin-left:auto;align-self:center">↻ Restart</button>
       </div>
       <div class="sky" id="sky">
         <div class="ground"></div>
@@ -135,6 +136,7 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('visibilitychange',()=>{ if(document.hidden&&running){ running=false; cancelAnimationFrame(raf); $('ready').hidden=false; $('readyText').textContent='Paused. Press Start to keep going.'; } });
 $('start').onclick=()=>{ if(drops.length||score) { $('ready').hidden=true; running=true; last=performance.now(); raf=requestAnimationFrame(loop); } else start(); };
 $('again').onclick=reset;
+$('restart').onclick=()=>{ reset(); start(); };
 reset();
 })();
 </script>
