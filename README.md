@@ -39,3 +39,7 @@ python3 tools/stamp.py
 ```
 
 This writes a new version number into `version.json` and every page.
+
+## Visit counter
+
+The menu shows the total number of visits from everyone, using [GoatCounter](https://www.goatcounter.com) (free, cookie-free, no personal data). Put the GoatCounter site code in `tools/site.json` and run `python3 tools/stamp.py`. In GoatCounter's settings, "Allow adding visitor counts on your website" must be ticked.
