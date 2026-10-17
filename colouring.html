@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script id="gc-update">(function(){var cur="20261017053935";try{fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){if(!j||!j.v||j.v===cur)return;var u=new URL(location.href);if(u.searchParams.get("v")===j.v)return;u.searchParams.set("v",j.v);location.replace(u.toString());}).catch(function(){});}catch(e){}})();</script>
+<script id="gc-count" data-goatcounter="https://kingsreuben.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Colouring Book</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css?v=20261017053935">
+<style>
+:root{--accent:#e8590c;--ink-line:#2b2b2b}
+@media (prefers-color-scheme: dark){:root{--accent:#ff8c4a;--accentInk:#2a1100}}
+.picker{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity}
+.pick{flex:none;width:92px;border:3px solid var(--line);background:var(--card);border-radius:16px;padding:6px;display:flex;flex-direction:column;align-items:center;gap:4px;scroll-snap-align:start}
+.pick[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 4px 0 var(--accent)}
+.pick svg{width:72px;height:72px;border-radius:8px;background:#fff}
+.pick span{font-size:.78rem;font-weight:800}
+.studio{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;align-items:start}
+@media (max-width:820px){.studio{grid-template-columns:minmax(0,1fr)}}
+.paper{background:#fff;border:3px solid var(--line);border-radius:20px;padding:10px;box-shadow:0 6px 0 var(--line)}
+.paper svg{display:block;width:100%;height:auto;max-height:66vh;touch-action:none;user-select:none;-webkit-user-select:none}
+.fillL .r{fill:#fff;stroke:none;cursor:crosshair}
+.strokeL{pointer-events:none}
+.lineL{pointer-events:none}
+.ol,.ln{fill:none;stroke:var(--ink-line);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.pick .ol,.pick .ln{stroke-width:4}
+.seg button[data-tool]{font-size:1.05rem}
+.tools{display:flex;flex-direction:column;gap:14px}
+.now{display:flex;align-items:center;gap:10px;font-weight:800}
+.now i{width:44px;height:44px;border-radius:50%;border:3px solid var(--ink);display:inline-block}
+.palette{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+@media (max-width:820px){.palette{grid-template-columns:repeat(8,1fr)}}
+.sw{aspect-ratio:1/1;border-radius:50%;border:3px solid rgba(0,0,0,.18);padding:0}
+.sw[aria-pressed="true"]{outline:4px solid var(--ink);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row .btn{flex:1;min-width:110px;font-size:1rem;padding:10px 12px}
+.tip{margin:0;color:var(--muted);font-weight:700;font-size:.9rem}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./?v=20261017053935">&larr; All games</a>
+<div class="page wide">
+  <div class="top"><div><h1>Colouring Book</h1><p class="sub">Pick a picture and a colour, then colour it in with the crayon. Your colouring is saved on this device.</p></div></div>
+  <div class="picker" id="picker" role="group" aria-label="Pictures"></div>
+  <div class="studio">
+    <div class="paper"><svg id="art" viewBox="0 0 300 300" role="img" aria-label="Colouring picture"></svg></div>
+    <div class="tools card">
+      <div class="seg" role="group" aria-label="Tool">
+        <button data-tool="crayon" aria-pressed="true">Crayon<small>drag to colour</small></button>
+        <button data-tool="fill" aria-pressed="false">Fill<small>tap to fill</small></button>
+      </div>
+      <div class="seg" role="group" aria-label="Crayon size" id="sizes">
+        <button data-size="thin" aria-pressed="false">Thin</button>
+        <button data-size="medium" aria-pressed="true">Medium</button>
+        <button data-size="thick" aria-pressed="false">Thick</button>
+      </div>
+      <div class="now"><i id="nowSw"></i><span id="nowName">Red</span></div>
+      <div class="palette" id="palette" role="group" aria-label="Colours"></div>
+      <div class="row">
+        <button class="btn ghost" id="undo">↶ Undo</button>
+        <button class="btn ghost" id="eraser">Eraser</button>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="clear">Start again</button>
+        <button class="btn" id="save">Save picture</button>
+      </div>
+      <p class="tip" id="tip">Drag back and forth to colour. The colour stays inside the part you start in.</p>
+    </div>
+  </div>
+</div>
+<script src="common.js?v=20261017053935"></script>
+<script>
+(function(){
+const {$, sound, store, confetti} = GC;
+/* helpers to write original line-art: every .r shape is a fillable area */
+const R=(tag,a)=>`<${tag} class="r" ${Object.entries(a).map(([k,v])=>`${k}="${v}"`).join(' ')}/>`;
+const L=d=>`<path class="ln" d="${d}"/>`;
+const star=(cx,cy,o,i)=>{ let p=[]; for(let k=0;k<10;k++){ const a=-Math.PI/2+k*Math.PI/5, rr=k%2?i:o; p.push((cx+rr*Math.cos(a)).toFixed(1)+','+(cy+rr*Math.sin(a)).toFixed(1)); } return R('polygon',{points:p.join(' ')}); };
+const ring=(n,dist,fn)=>[...Array(n)].map((_,k)=>{ const a=k*2*Math.PI/n; return fn(150+dist*Math.cos(a),150+dist*Math.sin(a),a*180/Math.PI); }).join('');
+
+const SKETCHES=[
+ {id:'house',name:'House',svg:
+  R('rect',{x:0,y:0,width:300,height:215})+R('circle',{cx:248,cy:52,r:26})+
+  R('path',{d:'M38 78a17 17 0 0 1 28-14a20 20 0 0 1 36 4a14 14 0 0 1 4 28h-60a14 14 0 0 1-8-18z'})+
+  R('rect',{x:0,y:210,width:300,height:90})+R('polygon',{points:'128,230 156,230 180,300 104,300'})+
+  R('rect',{x:175,y:68,width:22,height:44})+R('rect',{x:70,y:120,width:140,height:110})+R('polygon',{points:'55,126 140,58 225,126'})+
+  R('rect',{x:84,y:142,width:30,height:28})+R('rect',{x:166,y:142,width:30,height:28})+R('rect',{x:125,y:172,width:32,height:58,rx:3})+R('circle',{cx:151,cy:203,r:3.5})+
+  R('rect',{x:251,y:165,width:16,height:55})+R('circle',{cx:259,cy:145,r:30})},
+ {id:'fish',name:'Fish',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:252,width:300,height:48})+
+  R('path',{d:'M40 254C28 222 56 200 42 168C64 192 52 222 60 254Z'})+R('path',{d:'M250 254C238 226 264 206 252 176C274 200 262 226 270 254Z'})+
+  R('polygon',{points:'72,150 28,108 28,192'})+R('path',{d:'M118 102Q150 58 188 102Z'})+R('path',{d:'M140 196Q158 232 176 194Z'})+
+  R('ellipse',{cx:150,cy:150,rx:85,ry:55})+R('path',{d:'M138 97Q126 150 138 203L160 204Q148 150 160 96Z'})+
+  R('circle',{cx:200,cy:136,r:13})+R('circle',{cx:203,cy:136,r:6})+
+  R('circle',{cx:250,cy:92,r:10})+R('circle',{cx:266,cy:58,r:7})+R('circle',{cx:248,cy:32,r:5})+L('M222 168q10 6 18-2')},
+ {id:'butterfly',name:'Butterfly',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:262,width:300,height:38})+
+  R('ellipse',{cx:103,cy:108,rx:60,ry:46,transform:'rotate(-22 103 108)'})+R('ellipse',{cx:197,cy:108,rx:60,ry:46,transform:'rotate(22 197 108)'})+
+  R('ellipse',{cx:113,cy:186,rx:40,ry:34,transform:'rotate(25 113 186)'})+R('ellipse',{cx:187,cy:186,rx:40,ry:34,transform:'rotate(-25 187 186)'})+
+  R('circle',{cx:92,cy:104,r:16})+R('circle',{cx:208,cy:104,r:16})+R('circle',{cx:115,cy:190,r:11})+R('circle',{cx:185,cy:190,r:11})+
+  R('ellipse',{cx:150,cy:150,rx:10,ry:60})+R('circle',{cx:150,cy:84,r:13})+L('M145 74Q132 46 118 40')+L('M155 74Q168 46 182 40')+
+  R('circle',{cx:40,cy:258,r:9})+R('circle',{cx:260,cy:255,r:9})},
+ {id:'rocket',name:'Rocket',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('circle',{cx:62,cy:232,r:40})+R('ellipse',{cx:62,cy:232,rx:62,ry:12})+
+  star(244,48,16,7)+star(44,58,12,5)+star(262,206,12,5)+star(220,128,8,4)+
+  R('polygon',{points:'130,232 150,288 170,232'})+R('polygon',{points:'126,186 94,240 126,230'})+R('polygon',{points:'174,186 206,240 174,230'})+
+  R('path',{d:'M125 234V122Q150 58 175 122V234Z'})+R('path',{d:'M129 112Q150 60 171 112Z'})+R('circle',{cx:150,cy:160,r:17})+R('rect',{x:145,y:208,width:10,height:30})},
+ {id:'car',name:'Car',svg:
+  R('rect',{x:0,y:0,width:300,height:205})+R('path',{d:'M180 62a16 16 0 0 1 26-12a18 18 0 0 1 32 4a13 13 0 0 1 4 25h-56a12 12 0 0 1-6-17z'})+R('circle',{cx:50,cy:50,r:24})+
+  R('rect',{x:0,y:200,width:300,height:100})+R('rect',{x:20,y:262,width:44,height:8})+R('rect',{x:94,y:262,width:44,height:8})+R('rect',{x:168,y:262,width:44,height:8})+R('rect',{x:242,y:262,width:44,height:8})+
+  R('path',{d:'M38 210V166Q38 152 54 150L96 146L122 110H198L230 146L254 150Q266 152 266 166V210Z'})+
+  R('polygon',{points:'104,146 127,118 156,118 156,146'})+R('polygon',{points:'166,118 194,118 218,146 166,146'})+
+  R('rect',{x:252,y:162,width:14,height:12})+R('circle',{cx:92,cy:210,r:24})+R('circle',{cx:214,cy:210,r:24})+R('circle',{cx:92,cy:210,r:9})+R('circle',{cx:214,cy:210,r:9})},
+ {id:'flower',name:'Flower pot',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:262,width:300,height:38})+
+  R('rect',{x:146,y:108,width:8,height:88})+R('path',{d:'M150 165Q114 140 102 162Q124 180 150 170Z'})+R('path',{d:'M154 152Q190 128 200 150Q178 168 154 160Z'})+
+  ring(6,27,(x,y)=>R('circle',{cx:x.toFixed(1),cy:(y-65).toFixed(1),r:22}))+R('circle',{cx:150,cy:85,r:16})+
+  R('polygon',{points:'100,204 200,204 186,282 114,282'})+R('rect',{x:92,y:190,width:116,height:20,rx:4})},
+ {id:'icecream',name:'Ice cream',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('polygon',{points:'108,168 192,168 150,288'})+L('M120 190L170 250M180 190L130 250M114 176L183 176')+
+  R('circle',{cx:150,cy:150,r:42})+R('circle',{cx:150,cy:96,r:36})+R('path',{d:'M112 156q4 22 12 6q6 18 12 2q8 14 14-2q6 16 12 0q8 18 14-4q6 16 12-6Z'})+
+  R('circle',{cx:150,cy:52,r:11})+L('M150 41Q154 26 166 22')+
+  R('rect',{x:132,y:84,width:10,height:4,rx:2,transform:'rotate(30 137 86)'})+R('rect',{x:160,y:100,width:10,height:4,rx:2,transform:'rotate(-30 165 102)'})+R('rect',{x:140,y:112,width:10,height:4,rx:2,transform:'rotate(70 145 114)'})},
+ {id:'owl',name:'Owl',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('circle',{cx:244,cy:58,r:30})+star(50,50,10,4)+star(90,28,7,3)+
+  R('rect',{x:0,y:246,width:300,height:20})+R('polygon',{points:'95,108 104,68 128,96'})+R('polygon',{points:'205,108 196,68 172,96'})+
+  R('ellipse',{cx:150,cy:165,rx:65,ry:80})+R('ellipse',{cx:150,cy:192,rx:40,ry:48})+R('ellipse',{cx:92,cy:176,rx:18,ry:44})+R('ellipse',{cx:208,cy:176,rx:18,ry:44})+
+  R('circle',{cx:125,cy:134,r:22})+R('circle',{cx:175,cy:134,r:22})+R('circle',{cx:125,cy:134,r:9})+R('circle',{cx:175,cy:134,r:9})+
+  R('polygon',{points:'141,152 159,152 150,170'})+R('ellipse',{cx:130,cy:246,rx:13,ry:7})+R('ellipse',{cx:170,cy:246,rx:13,ry:7})},
+ {id:'turtle',name:'Turtle',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('circle',{cx:250,cy:50,r:24})+R('rect',{x:0,y:228,width:300,height:72})+
+  R('ellipse',{cx:92,cy:222,rx:18,ry:14})+R('ellipse',{cx:206,cy:222,rx:18,ry:14})+R('polygon',{points:'58,198 30,208 58,214'})+R('circle',{cx:246,cy:180,r:26})+R('circle',{cx:254,cy:172,r:5})+
+  R('path',{d:'M58 204Q150 60 242 204Z'})+R('rect',{x:52,y:198,width:196,height:20,rx:10})+
+  R('polygon',{points:'150,118 168,128 168,148 150,158 132,148 132,128'})+R('polygon',{points:'108,160 126,170 126,190 108,198 90,190 90,170'})+R('polygon',{points:'192,160 210,170 210,190 192,198 174,190 174,170'})+R('polygon',{points:'150,166 168,176 168,196 132,196 132,176'})},
+ {id:'cake',name:'Birthday cake',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:256,width:300,height:44})+R('ellipse',{cx:150,cy:256,rx:112,ry:14})+
+  R('rect',{x:60,y:176,width:180,height:80})+R('path',{d:'M60 176H240V196Q225 212 210 196Q195 212 180 196Q165 212 150 196Q135 212 120 196Q105 212 90 196Q75 212 60 196Z'})+
+  R('rect',{x:92,y:122,width:116,height:56})+R('rect',{x:108,y:86,width:10,height:36})+R('rect',{x:145,y:86,width:10,height:36})+R('rect',{x:182,y:86,width:10,height:36})+
+  R('path',{d:'M113 82q-9-12 0-26q9 14 0 26z'})+R('path',{d:'M150 82q-9-12 0-26q9 14 0 26z'})+R('path',{d:'M187 82q-9-12 0-26q9 14 0 26z'})+
+  R('circle',{cx:110,cy:150,r:7})+R('circle',{cx:150,cy:150,r:7})+R('circle',{cx:190,cy:150,r:7})+R('circle',{cx:90,cy:230,r:8})+R('circle',{cx:150,cy:230,r:8})+R('circle',{cx:210,cy:230,r:8})},
+ {id:'boat',name:'Sailing boat',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('circle',{cx:54,cy:54,r:26})+L('M210 50q10-10 20 0q10-10 20 0')+L('M232 82q8-8 16 0q8-8 16 0')+
+  R('path',{d:'M0 196Q37 184 75 196T150 196T225 196T300 196V300H0Z'})+R('rect',{x:147,y:58,width:6,height:150})+
+  R('polygon',{points:'153,48 153,62 178,55'})+R('polygon',{points:'156,66 156,196 228,196'})+R('polygon',{points:'144,86 144,196 88,196'})+
+  R('path',{d:'M66 206H234L208 244H92Z'})+R('circle',{cx:120,cy:224,r:6})+R('circle',{cx:150,cy:224,r:6})+R('circle',{cx:180,cy:224,r:6})},
+ {id:'pattern',name:'Pattern',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('circle',{cx:150,cy:150,r:136})+
+  ring(8,88,(x,y,a)=>R('ellipse',{cx:x.toFixed(1),cy:y.toFixed(1),rx:22,ry:44,transform:`rotate(${(a+90).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})`}))+
+  ring(8,118,(x,y,a)=>{ const b=a+22.5, xx=150+118*Math.cos(b*Math.PI/180), yy=150+118*Math.sin(b*Math.PI/180); return R('circle',{cx:xx.toFixed(1),cy:yy.toFixed(1),r:10}); })+
+  R('circle',{cx:150,cy:150,r:56})+ring(6,32,(x,y,a)=>R('ellipse',{cx:x.toFixed(1),cy:y.toFixed(1),rx:11,ry:22,transform:`rotate(${(a+90).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})`}))+R('circle',{cx:150,cy:150,r:13})},
+ {id:'dino',name:'Dinosaur',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('circle',{cx:56,cy:56,r:26})+R('rect',{x:0,y:250,width:300,height:50})+
+  R('rect',{x:96,y:212,width:20,height:44,rx:6})+R('rect',{x:126,y:216,width:20,height:42,rx:6})+R('rect',{x:166,y:216,width:20,height:42,rx:6})+R('rect',{x:196,y:212,width:20,height:44,rx:6})+
+  R('polygon',{points:'84,178 16,214 88,206'})+R('path',{d:'M188 172Q206 112 222 72Q228 56 244 58Q262 62 258 77Q250 86 238 83Q228 122 224 178Z'})+
+  R('ellipse',{cx:150,cy:192,rx:76,ry:44})+R('circle',{cx:132,cy:176,r:9})+R('circle',{cx:162,cy:198,r:11})+R('circle',{cx:112,cy:204,r:7})+R('circle',{cx:190,cy:178,r:7})+R('circle',{cx:246,cy:68,r:3.5})},
+ {id:'cat',name:'Cat',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:252,width:300,height:48})+R('circle',{cx:56,cy:232,r:22})+L('M40 222q16 6 32-2M38 236q18 8 36-2')+
+  R('path',{d:'M196 244Q262 236 252 172Q248 160 238 170Q246 222 194 226Z'})+R('polygon',{points:'110,88 112,44 140,70'})+R('polygon',{points:'190,88 188,44 160,70'})+
+  R('ellipse',{cx:150,cy:200,rx:56,ry:56})+R('ellipse',{cx:150,cy:212,rx:30,ry:36})+R('circle',{cx:150,cy:110,r:46})+
+  R('ellipse',{cx:133,cy:104,rx:7,ry:10})+R('ellipse',{cx:167,cy:104,rx:7,ry:10})+R('polygon',{points:'143,122 157,122 150,131'})+
+  L('M140 128L104 120M140 132L104 136M160 128L196 120M160 132L196 136')+R('ellipse',{cx:126,cy:252,rx:16,ry:9})+R('ellipse',{cx:174,cy:252,rx:16,ry:9})},
+ {id:'apple',name:'Apple',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:248,width:300,height:52})+R('rect',{x:145,y:52,width:10,height:44,rx:4})+
+  R('path',{d:'M150 96C100 60 48 100 60 172C70 240 122 262 150 242C178 262 230 240 240 172C252 100 200 60 150 96Z'})+
+  R('path',{d:'M157 76Q192 44 218 60Q192 92 157 82Z'})+R('ellipse',{cx:100,cy:140,rx:12,ry:26})},
+ {id:'train',name:'Train',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:262,width:300,height:38})+R('rect',{x:0,y:250,width:300,height:12})+
+  R('circle',{cx:140,cy:40,r:22})+R('circle',{cx:110,cy:66,r:17})+R('circle',{cx:92,cy:90,r:13})+
+  R('rect',{x:80,y:108,width:24,height:44})+R('rect',{x:58,y:150,width:116,height:72,rx:6})+R('polygon',{points:'58,222 34,244 58,244'})+
+  R('rect',{x:170,y:110,width:82,height:112})+R('rect',{x:162,y:96,width:98,height:16,rx:4})+R('rect',{x:188,y:128,width:46,height:38,rx:4})+
+  R('circle',{cx:94,cy:232,r:22})+R('circle',{cx:150,cy:232,r:22})+R('circle',{cx:214,cy:232,r:22})+R('circle',{cx:94,cy:232,r:7})+R('circle',{cx:150,cy:232,r:7})+R('circle',{cx:214,cy:232,r:7})},
+ {id:'balloon',name:'Hot air balloon',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('path',{d:'M24 250a16 16 0 0 1 26-12a18 18 0 0 1 32 4a13 13 0 0 1 4 25h-56a12 12 0 0 1-6-17z'})+R('path',{d:'M214 230a14 14 0 0 1 24-10a16 16 0 0 1 28 4a12 12 0 0 1 4 22h-50a11 11 0 0 1-6-16z'})+
+  R('path',{d:'M150 30C78 30 68 118 110 170L130 196H170L190 170C232 118 222 30 150 30Z'})+R('path',{d:'M150 30C124 52 118 128 138 196H162C182 128 176 52 150 30Z'})+
+  R('path',{d:'M88 110Q150 126 212 110L206 130Q150 146 94 130Z'})+L('M132 196L138 226M168 196L162 226')+R('rect',{x:128,y:226,width:44,height:32,rx:5})+L('M40 60q8-8 16 0q8-8 16 0M228 80q8-8 16 0q8-8 16 0')},
+ {id:'castle',name:'Castle',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:256,width:300,height:44})+
+  R('rect',{x:90,y:134,width:20,height:20})+R('rect',{x:125,y:134,width:20,height:20})+R('rect',{x:155,y:134,width:20,height:20})+R('rect',{x:190,y:134,width:20,height:20})+
+  R('rect',{x:90,y:150,width:120,height:110})+R('rect',{x:38,y:110,width:54,height:150})+R('rect',{x:208,y:110,width:54,height:150})+
+  R('polygon',{points:'32,112 65,58 98,112'})+R('polygon',{points:'202,112 235,58 268,112'})+L('M65 58V36M235 58V36')+R('polygon',{points:'65,36 87,43 65,50'})+R('polygon',{points:'235,36 257,43 235,50'})+
+  R('path',{d:'M128 260V216Q150 188 172 216V260Z'})+R('rect',{x:57,y:148,width:16,height:26,rx:8})+R('rect',{x:227,y:148,width:16,height:26,rx:8})+R('circle',{cx:150,cy:180,r:11})},
+ {id:'rainbow',name:'Rainbow',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('circle',{cx:246,cy:56,r:24})+R('rect',{x:0,y:232,width:300,height:68})+
+  [130,112,94,76].map(r=>R('path',{d:`M${150-r} 232A${r} ${r} 0 0 1 ${150+r} 232L${150+r-18} 232A${r-18} ${r-18} 0 0 0 ${150-r+18} 232Z`})).join('')+
+  R('path',{d:'M6 236a18 18 0 0 1 28-14a22 22 0 0 1 40 6a15 15 0 0 1 2 30h-62a14 14 0 0 1-8-22z'})+R('path',{d:'M226 236a18 18 0 0 1 28-14a22 22 0 0 1 40 6a15 15 0 0 1 2 30h-62a14 14 0 0 1-8-22z'})},
+ {id:'tree',name:'Apple tree',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:250,width:300,height:50})+R('path',{d:'M134 168H166L172 256H128Z'})+
+  R('path',{d:'M150 28C200 28 232 58 226 94C262 110 256 166 216 170C200 196 160 192 150 176C140 192 100 196 84 170C44 166 38 110 74 94C68 58 100 28 150 28Z'})+
+  [[108,108],[172,78],[202,128],[142,138],[94,150],[186,160]].map(([x,y])=>R('circle',{cx:x,cy:y,r:10})).join('')+
+  R('circle',{cx:226,cy:222,r:10})+R('circle',{cx:248,cy:220,r:10})+R('rect',{x:210,y:226,width:56,height:30,rx:6})},
+ {id:'snail',name:'Snail',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:246,width:300,height:54})+L('M252 156L244 128M262 158L272 132')+R('circle',{cx:244,cy:124,r:6})+R('circle',{cx:272,cy:128,r:6})+
+  R('path',{d:'M38 246Q38 214 80 214H220Q240 200 246 170Q250 150 262 152Q274 156 268 180Q260 230 230 246Z'})+
+  R('circle',{cx:140,cy:168,r:60})+R('circle',{cx:146,cy:168,r:40})+R('circle',{cx:150,cy:168,r:20})+
+  R('rect',{x:40,y:226,width:6,height:22})+R('circle',{cx:43,cy:218,r:12})},
+ {id:'penguin',name:'Penguin',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('polygon',{points:'210,240 250,120 300,160 300,240'})+R('rect',{x:0,y:238,width:300,height:62})+
+  R('ellipse',{cx:150,cy:158,rx:64,ry:94})+R('ellipse',{cx:92,cy:172,rx:14,ry:44,transform:'rotate(18 92 172)'})+R('ellipse',{cx:208,cy:172,rx:14,ry:44,transform:'rotate(-18 208 172)'})+
+  R('ellipse',{cx:150,cy:182,rx:42,ry:66})+R('circle',{cx:130,cy:100,r:12})+R('circle',{cx:170,cy:100,r:12})+R('circle',{cx:132,cy:101,r:5})+R('circle',{cx:168,cy:101,r:5})+
+  R('polygon',{points:'140,116 160,116 150,132'})+R('rect',{x:102,y:136,width:96,height:14,rx:7})+R('rect',{x:172,y:142,width:14,height:40,rx:5})+
+  R('ellipse',{cx:128,cy:252,rx:17,ry:8})+R('ellipse',{cx:172,cy:252,rx:17,ry:8})},
+ {id:'ladybird',name:'Ladybird',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('path',{d:'M26 256Q56 62 276 46Q246 252 26 256Z'})+L('M44 242Q150 160 262 60')+
+  L('M154 76Q146 52 132 46M166 76Q176 52 190 46')+R('circle',{cx:160,cy:94,r:24})+R('circle',{cx:152,cy:86,r:5})+R('circle',{cx:168,cy:86,r:5})+
+  R('circle',{cx:160,cy:162,r:60})+L('M160 104V222')+
+  R('circle',{cx:134,cy:142,r:11})+R('circle',{cx:186,cy:142,r:11})+R('circle',{cx:128,cy:184,r:9})+R('circle',{cx:192,cy:184,r:9})+R('circle',{cx:150,cy:206,r:7})+R('circle',{cx:170,cy:206,r:7})},
+ {id:'kite',name:'Kite',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+R('rect',{x:0,y:270,width:300,height:30})+R('path',{d:'M206 52a14 14 0 0 1 24-10a16 16 0 0 1 28 4a12 12 0 0 1 4 22h-50a11 11 0 0 1-6-16z'})+
+  R('polygon',{points:'150,28 220,108 150,108'})+R('polygon',{points:'150,28 150,108 80,108'})+R('polygon',{points:'80,108 150,108 150,212'})+R('polygon',{points:'150,108 220,108 150,212'})+
+  L('M150 212Q120 240 146 262Q166 280 132 298')+R('polygon',{points:'134,232 120,224 122,242'})+R('polygon',{points:'134,232 148,226 146,242'})+R('polygon',{points:'150,268 136,262 138,278'})+R('polygon',{points:'150,268 164,262 162,278'})},
+ {id:'robot',name:'Robot',svg:
+  R('rect',{x:0,y:0,width:300,height:300})+L('M150 50V30')+R('circle',{cx:150,cy:26,r:8})+
+  R('rect',{x:95,y:68,width:10,height:30,rx:3})+R('rect',{x:195,y:68,width:10,height:30,rx:3})+R('rect',{x:105,y:48,width:90,height:72,rx:12})+
+  R('circle',{cx:130,cy:80,r:11})+R('circle',{cx:170,cy:80,r:11})+R('rect',{x:125,y:100,width:50,height:10,rx:3})+R('rect',{x:138,y:120,width:24,height:12})+
+  R('rect',{x:55,y:140,width:30,height:72,rx:12})+R('rect',{x:215,y:140,width:30,height:72,rx:12})+R('circle',{cx:70,cy:222,r:13})+R('circle',{cx:230,cy:222,r:13})+
+  R('rect',{x:105,y:228,width:30,height:46})+R('rect',{x:165,y:228,width:30,height:46})+R('rect',{x:98,y:268,width:44,height:16,rx:6})+R('rect',{x:158,y:268,width:44,height:16,rx:6})+
+  R('rect',{x:85,y:132,width:130,height:100,rx:14})+R('rect',{x:110,y:150,width:80,height:48,rx:6})+R('circle',{cx:125,cy:215,r:7})+R('circle',{cx:150,cy:215,r:7})+R('circle',{cx:175,cy:215,r:7})}
+];
+const COLORS=[
+ ['Red','#e03131'],['Orange','#ff922b'],['Yellow','#ffd43b'],['Lime','#94d82d'],['Green','#2f9e44'],['Teal','#12b886'],
+ ['Sky blue','#74c0fc'],['Blue','#1c7ed6'],['Navy','#1b2a5e'],['Purple','#7048e8'],['Lilac','#b197fc'],['Pink','#f783ac'],
+ ['Hot pink','#d6336c'],['Peach','#ffc9a9'],['Skin','#f1c27d'],['Tan','#c68642'],['Brown','#8d5524'],['Dark brown','#4a2c17'],
+ ['Light grey','#dee2e6'],['Grey','#868e96'],['Black','#212529'],['White','#ffffff'],['Gold','#e8b10c'],['Mint','#b2f2bb']
+];
+const NS='http://www.w3.org/2000/svg';
+const SIZES={thin:6,medium:14,thick:26};
+let cur=0, color=COLORS[0][1], tool='crayon', size=SIZES.medium, data=null, undo=[], drawing=null;
+const key=id=>'col2-'+id;
+const art=$('art');
+function blank(n){ return {fills:Array(n).fill(null), strokes:[]}; }
+function loadData(i){
+  const s=SKETCHES[i], n=(s.svg.match(/class="r"/g)||[]).length;
+  let d=store.get(key(s.id),null);
+  if(!d||!Array.isArray(d.fills)){ d=blank(n); const old=store.get('col-'+s.id,null); if(Array.isArray(old)) old.forEach((c,k)=>{ if(k<n) d.fills[k]=c; }); }
+  if(!Array.isArray(d.strokes)) d.strokes=[];
+  return d;
+}
+/* Three layers: fillable areas, crayon strokes (each kept inside its own area by a mask), outlines on top */
+function build(svg,i,d,pre){
+  const s=SKETCHES[i];
+  svg.innerHTML=`<defs></defs><g class="fillL">${s.svg}</g><g class="strokeL"></g><g class="lineL">${s.svg}</g>`;
+  svg.querySelectorAll('.fillL .ln').forEach(e=>e.remove());
+  svg.querySelectorAll('.lineL .r').forEach(el=>el.setAttribute('class','ol'));
+  [...svg.querySelectorAll('.fillL .r')].forEach((el,k)=>{ el.dataset.k=k; if(d.fills[k]) el.style.fill=d.fills[k]; });
+  d.strokes.forEach(st=>drawStroke(svg,st,pre));
+}
+function maskFor(svg,k,pre){
+  const id=pre+'m'+k; if(svg.querySelector('#'+id)) return id;
+  const shapes=[...svg.querySelectorAll('.fillL .r')]; let inner='';
+  shapes.forEach((el,j)=>{ if(j<k) return; const c=el.cloneNode(false); c.removeAttribute('class'); c.removeAttribute('style'); c.removeAttribute('data-k');
+    c.setAttribute('fill',j===k?'#fff':'#000'); inner+=c.outerHTML; });
+  const m=document.createElementNS(NS,'mask'); m.id=id; m.setAttribute('maskUnits','userSpaceOnUse');
+  ['x','y'].forEach(a=>m.setAttribute(a,'-10')); ['width','height'].forEach(a=>m.setAttribute(a,'320'));
+  m.innerHTML=inner; svg.querySelector('defs').appendChild(m); return id;
+}
+function pathD(p){ if(p.length<=2) return `M${p[0]} ${p[1]}l0.01 0`; let d=`M${p[0]} ${p[1]}`; for(let j=2;j<p.length;j+=2) d+=`L${p[j]} ${p[j+1]}`; return d; }
+function drawStroke(svg,st,pre){
+  const el=document.createElementNS(NS,'path');
+  el.setAttribute('d',pathD(st.p)); el.setAttribute('stroke',st.c); el.setAttribute('stroke-width',st.w);
+  el.setAttribute('fill','none'); el.setAttribute('stroke-linecap','round'); el.setAttribute('stroke-linejoin','round');
+  el.setAttribute('mask',`url(#${maskFor(svg,st.k,pre)})`); svg.querySelector('.strokeL').appendChild(el); return el;
+}
+function persist(){ store.set(key(SKETCHES[cur].id),data); }
+function load(i){
+  cur=i; data=loadData(i); undo=[]; build(art,i,data,'a');
+  art.setAttribute('aria-label',SKETCHES[i].name+' to colour'); store.set('col-last',SKETCHES[i].id); renderPicker();
+}
+function toSvg(e){ const p=art.createSVGPoint(); p.x=e.clientX; p.y=e.clientY; const q=p.matrixTransform(art.getScreenCTM().inverse()); return [Math.round(q.x*10)/10, Math.round(q.y*10)/10]; }
+art.addEventListener('pointerdown',e=>{
+  const el=e.target.closest('.fillL .r'); if(!el) return; e.preventDefault();
+  const k=+el.dataset.k;
+  if(tool==='fill'){
+    const before=data.fills[k]||null, removed=data.strokes.filter(s=>s.k===k);
+    if(before===color && !removed.length) return;
+    undo.push({t:'fill',k,before,removed}); data.fills[k]=color; data.strokes=data.strokes.filter(s=>s.k!==k);
+    build(art,cur,data,'a'); persist(); sound.tap(); updateThumb(); return;
+  }
+  const [x,y]=toSvg(e); const st={k,c:color,w:size,p:[x,y]};
+  drawing={st,el:drawStroke(art,st,'a'),lx:x,ly:y}; try{ art.setPointerCapture(e.pointerId); }catch(_){}
+});
+art.addEventListener('pointermove',e=>{
+  if(!drawing) return; e.preventDefault();
+  const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
+  for(const ev of (evs.length?evs:[e])){ const [x,y]=toSvg(ev); if(Math.hypot(x-drawing.lx,y-drawing.ly)<1.5) continue; drawing.st.p.push(x,y); drawing.lx=x; drawing.ly=y; }
+  drawing.el.setAttribute('d',pathD(drawing.st.p));
+});
+function endStroke(){ if(!drawing) return; data.strokes.push(drawing.st); undo.push({t:'stroke'}); drawing=null; persist(); updateThumb(); }
+art.addEventListener('pointerup',endStroke); art.addEventListener('pointercancel',endStroke); art.addEventListener('lostpointercapture',endStroke);
+
+function pickColor(i){ color=COLORS[i][1]; $('nowSw').style.background=color; $('nowName').textContent=COLORS[i][0];
+  document.querySelectorAll('.sw').forEach((b,j)=>b.setAttribute('aria-pressed',String(j===i))); $('eraser').setAttribute('aria-pressed','false'); }
+COLORS.forEach(([n,c],i)=>{ const b=document.createElement('button'); b.className='sw'; b.style.background=c; b.setAttribute('aria-label',n); b.title=n; b.onclick=()=>{ sound.tap(); pickColor(i); }; $('palette').appendChild(b); });
+$('eraser').onclick=()=>{ color='#ffffff'; $('nowSw').style.background='#fff'; $('nowName').textContent='Eraser (white)'; document.querySelectorAll('.sw').forEach(b=>b.setAttribute('aria-pressed','false')); $('eraser').setAttribute('aria-pressed','true'); };
+document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{ tool=b.dataset.tool; document.querySelectorAll('[data-tool]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); $('sizes').hidden=tool!=='crayon';
+  $('tip').textContent= tool==='crayon' ? 'Drag back and forth to colour. The colour stays inside the part you start in.' : 'Tap any part to fill it with one colour.'; });
+document.querySelectorAll('[data-size]').forEach(b=>b.onclick=()=>{ size=SIZES[b.dataset.size]; document.querySelectorAll('[data-size]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); });
+$('undo').onclick=()=>{
+  const u=undo.pop(); if(!u) return;
+  if(u.t==='stroke'){ data.strokes.pop(); const last=art.querySelector('.strokeL').lastElementChild; if(last) last.remove(); }
+  else { data.fills[u.k]=u.before; data.strokes=data.strokes.concat(u.removed); build(art,cur,data,'a'); }
+  persist(); updateThumb();
+};
+let clearArmed=false;
+$('clear').onclick=()=>{
+  if(!clearArmed){ clearArmed=true; $('clear').textContent='Tap again to clear'; setTimeout(()=>{ clearArmed=false; $('clear').textContent='Start again'; },2500); return; }
+  clearArmed=false; $('clear').textContent='Start again';
+  data=blank(data.fills.length); persist(); undo=[]; build(art,cur,data,'a'); updateThumb(); $('tip').textContent='Fresh page! Pick a colour and start.';
+};
+$('save').onclick=()=>{
+  const svg=art.cloneNode(true); svg.setAttribute('xmlns',NS); svg.setAttribute('width',900); svg.setAttribute('height',900);
+  svg.querySelectorAll('.fillL .r').forEach(el=>{ el.setAttribute('fill',el.style.fill||'#ffffff'); el.setAttribute('stroke','none'); });
+  svg.querySelectorAll('.ol,.ln').forEach(el=>{ el.setAttribute('fill','none'); el.setAttribute('stroke','#2b2b2b'); el.setAttribute('stroke-width','3'); el.setAttribute('stroke-linejoin','round'); el.setAttribute('stroke-linecap','round'); });
+  const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(svg));
+  const img=new Image(); img.onload=()=>{ const c=document.createElement('canvas'); c.width=900; c.height=900; const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,900,900); x.drawImage(img,0,0,900,900);
+    c.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`my-${SKETCHES[cur].id}.png`; document.body.appendChild(a); a.click(); a.remove(); $('tip').textContent='Saved! Look in your Downloads or Photos.'; },'image/png'); };
+  img.src=url;
+};
+function thumb(i){ const svg=document.createElementNS(NS,'svg'); svg.setAttribute('viewBox','0 0 300 300'); svg.setAttribute('aria-hidden','true'); build(svg,i,i===cur?data:loadData(i),'t'+i+'_'); return svg; }
+function renderPicker(){
+  $('picker').innerHTML='';
+  SKETCHES.forEach((s,i)=>{ const b=document.createElement('button'); b.className='pick'; b.id='pick'+i; b.setAttribute('aria-pressed',String(i===cur));
+    b.appendChild(thumb(i)); const n=document.createElement('span'); n.textContent=s.name; b.appendChild(n); b.onclick=()=>{ sound.tap(); load(i); }; $('picker').appendChild(b); });
+  const sel=$('pick'+cur); if(sel) sel.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+function updateThumb(){ const b=$('pick'+cur); if(b) b.replaceChild(thumb(cur), b.querySelector('svg')); }
+pickColor(0);
+const last=store.get('col-last',null); const li=SKETCHES.findIndex(s=>s.id===last);
+load(li>=0?li:0);
+})();
+</script>
+</body>
+</html>

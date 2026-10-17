@@ -1,6 +1,6 @@
 # Game Corner
 
-Twelve simple browser games for kids. They work on computers, tablets and phones, and need nothing to install.
+Thirteen simple browser games for kids. They work on computers, tablets and phones, and need nothing to install.
 
 | Page | Game |
 |---|---|
@@ -11,6 +11,7 @@ Twelve simple browser games for kids. They work on computers, tablets and phones
 | `memory-match.html` | Memory Match: find the pairs, 3 sizes, Top 10 by fewest moves |
 | `word-search.html` | Word Search: 5 topics, 3 difficulty levels |
 | `colour-by-number.html` | Colour by Number: 18 pixel pictures |
+| `colouring.html` | Colouring Book: 25 drawings, crayon that stays inside the lines, or tap to fill |
 | `maths-race.html` | Maths Race: 60-second sums for + − × ÷, Top 10 |
 | `spelling-bee.html` | Spelling Bee: 8 levels of read-aloud spelling |
 | `typing-hero.html` | Typing Hero: falling-letter typing practice, Top 10 |
