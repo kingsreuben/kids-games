@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script id="gc-update">(function(){var cur="20261018074505";try{fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){if(!j||!j.v||j.v===cur)return;var u=new URL(location.href);if(u.searchParams.get("v")===j.v)return;u.searchParams.set("v",j.v);location.replace(u.toString());}).catch(function(){});}catch(e){}})();</script>
+<script id="gc-count" data-goatcounter="https://kingsreuben.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Atlas for Kids</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="common.css?v=20261018074505">
+<style>
+:root{--accent:#0b7285;--p1:#1c7ed6;--p2:#e8590c;--sea:#d0ebff;--land:#d3f9d8}
+@media (prefers-color-scheme: dark){:root{--accent:#3bc9db;--accentInk:#03252b;--p1:#5aa9ff;--p2:#ff8c4a;--sea:#14324a;--land:#173a24}}
+.setup{display:flex;flex-direction:column;gap:14px}
+.setup label.h{font-size:.75rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:6px}
+.how{margin:0;padding-left:20px;color:var(--muted);font-weight:700;line-height:1.6}
+.how b{color:var(--ink)}
+.board{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:stretch}
+.pl{background:var(--card);border:3px solid var(--line);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pl.on{border-color:currentColor;box-shadow:0 4px 0 currentColor}
+.pl#pl0{color:var(--p1)} .pl#pl1{color:var(--p2)}
+.pl .nm{font-family:var(--display);font-weight:800;font-size:1.2rem;line-height:1.1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .hearts{color:#e03131;font-size:1.1rem;letter-spacing:2px}
+.pl .pts{font-weight:800;color:var(--muted);font-size:.85rem}
+.letter{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--accent);color:var(--accentInk);border-radius:18px;padding:6px 16px;min-width:96px}
+.letter span{font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.9}
+.letter b{font-family:var(--display);font-size:3rem;line-height:1}
+@media (max-width:480px){.board{grid-template-columns:1fr 1fr}.letter{grid-column:1/-1;grid-row:1;flex-direction:row;gap:12px;padding:6px}.letter b{font-size:2.2rem}}
+.turnbox{background:var(--card);border:3px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.prompt{margin:0;font-family:var(--display);font-weight:700;font-size:1.35rem;line-height:1.25;text-wrap:balance}
+.prompt em{font-style:normal;color:var(--accent)}
+.inrow{display:flex;gap:8px}
+.inrow input{flex:1;min-width:0;font-family:var(--display);font-size:1.4rem;padding:10px 14px;border-radius:14px;border:3px solid var(--line);background:var(--bg);color:var(--ink)}
+.inrow input:focus{outline:none;border-color:var(--accent)}
+.mic{display:flex;flex-direction:column;align-items:center;gap:8px}
+.micbtn{width:96px;height:96px;border-radius:50%;border:0;background:var(--accent);color:var(--accentInk);display:flex;align-items:center;justify-content:center;box-shadow:0 5px 0 color-mix(in srgb,var(--accent) 55%,#000)}
+.micbtn svg{width:44px;height:44px}
+.micbtn.live{background:#e03131;animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.07)}}
+.heard{margin:0;font-weight:800;color:var(--muted);min-height:1.4em;text-align:center}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions .btn{font-size:1rem;padding:9px 14px}
+.timerbar{height:8px;border-radius:4px;background:var(--soft);overflow:hidden}
+.timerbar i{display:block;height:100%;background:var(--accent);width:100%;transition:width .25s linear}
+.accept{background:none;border:0;color:var(--accent);font-weight:800;text-decoration:underline;padding:0;font-size:.95rem;align-self:flex-start}
+.chain{display:flex;flex-wrap:wrap;gap:6px 4px;align-items:center;list-style:none;margin:0;padding:0}
+.chain li{display:flex;align-items:center;gap:4px}
+.chain li+li::before{content:"→";color:var(--muted);font-weight:800;margin-right:2px}
+.chip{display:flex;flex-direction:column;padding:5px 10px;border-radius:12px;background:var(--land);line-height:1.15;border:2px solid transparent}
+.chip.p0{border-color:var(--p1)} .chip.p1{border-color:var(--p2)}
+.chip b{font-family:var(--display);font-size:1.05rem}
+.chip b u{text-decoration:none;color:var(--accent);font-size:1.15em}
+.chip small{font-size:.66rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.chip.new{animation:popIn .3s}
+.chainHead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.chainHead h3{margin:0;font-family:var(--display);font-size:1.2rem}
+.chainHead span{font-weight:800;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<a class="homeLink" href="./?v=20261018074505">&larr; All games</a>
+<div class="page">
+  <div class="top"><div><h1>Atlas for Kids</h1><p class="sub">Name a place that starts with the last letter of the one before. India → Africa → Andaman → New York…</p></div>
+    <div class="stats"><div class="stat"><span>Longest chain</span><b id="best">0</b></div></div></div>
+
+  <!-- SETUP -->
+  <section class="card setup" id="setup">
+    <div class="field"><label class="h">Who is playing</label>
+      <div class="seg" role="group" aria-label="Who is playing">
+        <button data-opp="easy" aria-pressed="true">vs Computer<small>Easy</small></button>
+        <button data-opp="hard" aria-pressed="false">vs Computer<small>Hard</small></button>
+        <button data-opp="pvp" aria-pressed="false">2 Players<small>Same device</small></button>
+      </div></div>
+    <div class="field"><label class="h">Answer by</label>
+      <div class="seg" role="group" aria-label="Answer by">
+        <button data-mode="text" aria-pressed="true">Typing<small>keyboard</small></button>
+        <button data-mode="voice" aria-pressed="false">Voice<small>speak your answer</small></button>
+      </div>
+      <p class="sub" id="voiceNote" hidden style="font-size:.9rem"></p></div>
+    <div class="field"><label class="h">Time for each turn</label>
+      <div class="seg" role="group" aria-label="Timer">
+        <button data-time="0" aria-pressed="true">No timer</button>
+        <button data-time="60" aria-pressed="false">60 sec</button>
+        <button data-time="30" aria-pressed="false">30 sec</button>
+      </div></div>
+    <ul class="how">
+      <li>Places can be <b>countries, Indian states, cities, districts, rivers, mountains</b> or <b>famous places</b>.</li>
+      <li>Your place must start with the <b>last letter</b> of the place before.</li>
+      <li>No repeats! Each place can be used only once.</li>
+      <li>Each player has <b>3 hearts</b>. Giving up or running out of time loses a heart.</li>
+    </ul>
+    <button class="btn big" id="startBtn" style="align-self:center">Start</button>
+  </section>
+
+  <!-- GAME -->
+  <section id="game" hidden style="display:flex;flex-direction:column;gap:14px">
+    <div class="board">
+      <div class="pl" id="pl0"><span class="nm" id="nm0">You</span><span class="hearts" id="h0">♥♥♥</span><span class="pts" id="s0">0 places</span></div>
+      <div class="letter" aria-live="polite"><span>Next letter</span><b id="nextLetter">?</b></div>
+      <div class="pl" id="pl1"><span class="nm" id="nm1">Computer</span><span class="hearts" id="h1">♥♥♥</span><span class="pts" id="s1">0 places</span></div>
+    </div>
+    <div class="turnbox">
+      <p class="prompt" id="prompt">Your turn! Say any place to start.</p>
+      <div class="timerbar" id="timerbar" hidden><i id="timerfill"></i></div>
+      <form class="inrow" id="textRow" autocomplete="off">
+        <input id="answer" placeholder="Type a place…" aria-label="Your place" autocapitalize="words" spellcheck="false">
+        <button class="btn" type="submit">Go</button>
+      </form>
+      <div class="mic" id="micRow" hidden>
+        <button class="micbtn" id="micBtn" aria-label="Tap and say a place"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <p class="heard" id="heard">Tap the microphone and say a place</p>
+      </div>
+      <p class="msg" id="msg"></p>
+      <button class="accept" id="acceptBtn" hidden></button>
+      <div class="actions">
+        <button class="btn ghost" id="hintBtn">Hint (3 left)</button>
+        <button class="btn ghost" id="giveBtn">I give up</button>
+        <button class="btn ghost" id="quitBtn">New game</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="chainHead"><h3>The chain</h3><span id="chainLen">0 places</span></div>
+      <ol class="chain" id="chain"></ol>
+    </div>
+  </section>
+
+  <!-- END -->
+  <section class="result" id="result" hidden>
+    <h2 id="rTitle">You win!</h2>
+    <div class="big" id="rChain">12 places</div>
+    <p id="rText"></p>
+    <button class="btn big" id="againBtn">Play again</button>
+  </section>
+</div>
+<script src="common.js?v=20261018074505"></script>
+<script src="atlas-data.js"></script>
+<script>
+(function(){
+const {$, sound, speak, canSpeak, confetti, store, shuffle} = GC;
+/* ---------- atlas index ---------- */
+const norm=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/&/g,'and').replace(/^the\s+/,'').replace(/[^a-z]/g,'');
+const PLACES=[], INDEX=new Map();
+for(const cat in ATLAS_DATA){ ATLAS_DATA[cat].split(';').forEach(e=>{ const names=e.split('|').map(s=>s.trim()).filter(Boolean); if(!names.length) return;
+  const p={id:PLACES.length,name:names[0],names,cat}; PLACES.push(p); names.forEach(n=>{ const k=norm(n); if(!INDEX.has(k)) INDEX.set(k,{p,as:n}); }); }); }
+const KEYS=[...INDEX.keys()];
+function lev(a,b,max){ if(Math.abs(a.length-b.length)>max) return max+1; const d=[...Array(b.length+1).keys()];
+  for(let i=1;i<=a.length;i++){ let prev=d[0]; d[0]=i; let rowMin=d[0];
+    for(let j=1;j<=b.length;j++){ const t=d[j]; d[j]=Math.min(d[j]+1,d[j-1]+1,prev+(a[i-1]===b[j-1]?0:1)); prev=t; rowMin=Math.min(rowMin,d[j]); }
+    if(rowMin>max) return max+1; } return d[b.length]; }
+/* find a place for typed/spoken text: exact, then a close spelling */
+function lookup(text){
+  const k=norm(text); if(!k) return null;
+  if(INDEX.has(k)) return {...INDEX.get(k),fixed:false};
+  if(INDEX.has(k.replace(/^mount/,''))) return {...INDEX.get(k.replace(/^mount/,'')),fixed:false};
+  if(k.length<4) return null;
+  const max=k.length>=9?2:1; let best=null, bd=max+1;
+  for(const key of KEYS){ if(key[0]!==k[0]) continue; const d=lev(k,key,max); if(d<bd){ bd=d; best=key; } }
+  return best?{...INDEX.get(best),fixed:true}:null;
+}
+const lastLetterOf=s=>{ const k=norm(s); return k?k[k.length-1]:''; };
+
+/* ---------- game state ---------- */
+let opp=store.get('atlas-opp','easy'), mode=store.get('atlas-mode','text'), timeLimit=store.get('atlas-time',0);
+let names, turn, hearts, pts, hints, used, chain, letter, timerEnd=0, timerId=null, over=true, busy=false, pending=null, cpuTurns=0;
+const best=()=>store.get('atlas-best',0);
+$('best').textContent=best();
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function seg(sel,attr,val){ document.querySelectorAll(sel).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[attr]===String(val)))); }
+function voiceNote(){ const n=$('voiceNote'); if(mode!=='voice'){ n.hidden=true; return; } n.hidden=false;
+  n.textContent = SR ? 'Allow the microphone when your browser asks. Works best in Chrome. Answers are also read aloud.' : 'Voice answers are not supported in this browser (try Chrome). You can still type, and answers will be read aloud.'; }
+seg('[data-opp]','opp',opp); seg('[data-mode]','mode',mode); seg('[data-time]','time',timeLimit); voiceNote();
+document.querySelectorAll('[data-opp]').forEach(b=>b.onclick=()=>{ opp=b.dataset.opp; store.set('atlas-opp',opp); seg('[data-opp]','opp',opp); });
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{ mode=b.dataset.mode; store.set('atlas-mode',mode); seg('[data-mode]','mode',mode); voiceNote(); });
+document.querySelectorAll('[data-time]').forEach(b=>b.onclick=()=>{ timeLimit=+b.dataset.time; store.set('atlas-time',timeLimit); seg('[data-time]','time',timeLimit); });
+
+const isCpu=i=>opp!=='pvp'&&i===1;
+const voiceOn=()=>mode==='voice';
+function talk(t){ if(voiceOn()) speak(t,.95); }
+function show(id){ for(const s of ['setup','game','result']) $(s).hidden=s!==id; window.scrollTo(0,0); }
+
+function start(){
+  names = opp==='pvp' ? ['Player 1','Player 2'] : ['You','Computer'];
+  turn=0; hearts=[3,3]; pts=[0,0]; hints=[3,3]; used=new Set(); chain=[]; letter=''; over=false; busy=false; pending=null; cpuTurns=0;
+  $('nm0').textContent=names[0]; $('nm1').textContent=names[1]; $('chain').innerHTML='';
+  const useMic = voiceOn() && !!SR;
+  $('textRow').hidden=useMic; $('micRow').hidden=!useMic;
+  show('game'); render(); beginTurn();
+}
+function render(){
+  for(const i of [0,1]){ $('h'+i).textContent='♥'.repeat(hearts[i])+'♡'.repeat(3-hearts[i]); $('s'+i).textContent=`${pts[i]} place${pts[i]===1?'':'s'}`; $('pl'+i).classList.toggle('on',turn===i&&!over); }
+  $('nextLetter').textContent=letter?letter.toUpperCase():'Any';
+  $('chainLen').textContent=`${chain.length} place${chain.length===1?'':'s'}`;
+  $('hintBtn').textContent=`Hint (${hints[turn]} left)`; $('hintBtn').disabled=isCpu(turn)||hints[turn]<=0;
+  $('giveBtn').disabled=isCpu(turn);
+}
+function say(t,c){ $('msg').textContent=t; $('msg').className='msg'+(c?' '+c:''); }
+function who(i){ return names[i]==='You'?'Your':names[i]+'’s'; }
+function beginTurn(){
+  pending=null; $('acceptBtn').hidden=true; render();
+  const L=letter?letter.toUpperCase():'';
+  const line = letter ? `${who(turn)} turn! A place starting with ` : `${who(turn)} turn! Name any place to start.`;
+  $('prompt').innerHTML=''; $('prompt').append(line); if(letter){ const em=document.createElement('em'); em.textContent=L; $('prompt').append(em,'.'); }
+  startTimer();
+  if(isCpu(turn)){ $('answer').disabled=true; $('micBtn').disabled=true; setTimeout(cpuMove, 1100+Math.random()*900); return; }
+  $('answer').disabled=false; $('micBtn').disabled=false; $('answer').value=''; $('heard').textContent='Tap the microphone and say a place';
+  if(!voiceOn()) setTimeout(()=>{ try{ $('answer').focus({preventScroll:true}); }catch(e){} },50);
+  talk(letter ? `${names[turn]==='You'?'Your':names[turn]+"'s"} turn. Say a place starting with ${L}.` : `${names[turn]==='You'?'You':names[turn]}, say any place to start.`);
+}
+function startTimer(){
+  clearInterval(timerId); $('timerbar').hidden=!timeLimit; if(!timeLimit) return;
+  timerEnd=Date.now()+timeLimit*1000;
+  timerId=setInterval(()=>{ const ms=timerEnd-Date.now(); $('timerfill').style.width=Math.max(0,ms/(timeLimit*10))+'%'; if(ms<=0){ clearInterval(timerId); if(!isCpu(turn)&&!over) loseHeart(`Time's up!`); } },200);
+}
+/* check an answer; returns true if accepted */
+function tryAnswer(text, force){
+  if(over||busy) return false;
+  const raw=String(text).trim(); if(!raw){ say('Type or say a place first.'); return false; }
+  let hit=force?null:lookup(raw), shown, p;
+  if(force){ p={id:'x'+norm(raw),name:raw,names:[raw],cat:'Accepted place'}; shown=titleCase(raw); }
+  else { if(!hit){ pending=raw; say(`Hmm, “${raw}” isn't in my atlas.`,'bad'); sound.bad();
+      $('acceptBtn').textContent=`Is “${titleCase(raw)}” a real place? Tap to accept it`; $('acceptBtn').hidden=!(/[a-z]/i.test(raw)); return false; }
+    p=hit.p; shown=hit.as; }
+  const first=norm(shown)[0];
+  if(letter && first!==letter){ say(`${shown} starts with ${first.toUpperCase()}. You need a place starting with ${letter.toUpperCase()}.`,'bad'); sound.bad(); talk(`${shown} starts with ${first.toUpperCase()}. Try a place starting with ${letter.toUpperCase()}.`); return false; }
+  if(used.has(p.id)){ say(`${shown} has already been used. Try another!`,'bad'); sound.bad(); talk(`${shown} is already used. Try another one.`); return false; }
+  accept(p, shown, hit&&hit.fixed); return true;
+}
+const titleCase=s=>s.replace(/\s+/g,' ').trim().replace(/\b[a-z]/g,c=>c.toUpperCase());
+function nextLetterFrom(word){
+  const k=norm(word);
+  for(let i=k.length-1;i>=0;i--){ const c=k[i]; if(PLACES.some(p=>!used.has(p.id)&&norm(p.name)[0]===c)) return {c,skipped:i<k.length-1}; }
+  return {c:'',skipped:true};
+}
+function accept(p, shown, fixed){
+  clearInterval(timerId); used.add(p.id); pts[turn]++; const who_=turn;
+  chain.push({name:shown,cat:p.cat,by:who_});
+  const li=document.createElement('li'); const chip=document.createElement('span'); chip.className=`chip new p${who_}`;
+  const b=document.createElement('b'); const k=shown.replace(/[^A-Za-z]+$/,''); b.append(k.slice(0,-1)); const u=document.createElement('u'); u.textContent=k.slice(-1); b.append(u);
+  const sm=document.createElement('small'); sm.textContent=p.cat; chip.append(b,sm); li.append(chip); $('chain').append(li); li.scrollIntoView({block:'nearest'});
+  const nl=nextLetterFrom(shown); letter=nl.c; sound.good();
+  let m=`${names[who_]}: ${shown} (${p.cat})${fixed?' · spelling fixed':''}. Next letter: ${letter?letter.toUpperCase():'any'}.`;
+  if(nl.skipped&&letter) m+=` (No places left for “${lastLetterOf(shown).toUpperCase()}”, so we use ${letter.toUpperCase()}.)`;
+  say(m,'good');
+  if(chain.length>best()){ store.set('atlas-best',chain.length); $('best').textContent=chain.length; }
+  turn=1-turn; busy=true; setTimeout(()=>{ busy=false; if(!over) beginTurn(); }, isCpu(turn)?400:900);
+  render();
+}
+function loseHeart(reason){
+  clearInterval(timerId); const i=turn; hearts[i]--; sound.lose();
+  say(`${reason} ${names[i]} lose${names[i]==='You'?'':'s'} a heart.`,'bad'); talk(`${reason} ${names[i]} lose${names[i]==='You'?'':'s'} a heart.`);
+  render();
+  if(hearts[i]<=0){ finish(1-i); return; }
+  turn=1-turn; busy=true; setTimeout(()=>{ busy=false; if(!over) beginTurn(); },1300);
+}
+function cpuMove(){
+  if(over) return; cpuTurns++;
+  const cands=PLACES.filter(p=>!used.has(p.id)&&(!letter||norm(p.name)[0]===letter));
+  const giveUp = !cands.length || Math.random() < (opp==='easy' ? Math.min(.35, .04*cpuTurns) : .03);
+  if(giveUp){ loseHeart(`The computer couldn't think of one!`); return; }
+  const easyCats=['Country','Indian state','Indian union territory','World city','Indian city or district','Continent or ocean'];
+  const pool = opp==='easy' ? (cands.filter(p=>easyCats.includes(p.cat)).length ? cands.filter(p=>easyCats.includes(p.cat)) : cands) : cands;
+  const p=pool[Math.floor(Math.random()*pool.length)];
+  speakThen(`${p.name}!`); accept(p,p.name,false);
+}
+function speakThen(t){ if(voiceOn()) speak(t,.95); }
+function finish(winner){
+  over=true; clearInterval(timerId); render();
+  const humanWon = opp==='pvp' || winner===0;
+  $('rTitle').textContent = names[winner]==='You' ? 'You win!' : `${names[winner]} wins!`;
+  $('rChain').textContent = `${chain.length} place${chain.length===1?'':'s'} in the chain`;
+  $('rText').textContent = `${names[0]}: ${pts[0]} places · ${names[1]}: ${pts[1]} places`+(chain.length>=best()&&chain.length>0?' · New longest chain!':'');
+  setTimeout(()=>{ show('result'); if(humanWon){ sound.win(); confetti(); } talk($('rTitle').textContent); },900);
+}
+/* ---------- input ---------- */
+$('textRow').onsubmit=e=>{ e.preventDefault(); if(isCpu(turn)) return; if(tryAnswer($('answer').value)) $('answer').value=''; else $('answer').select(); };
+$('acceptBtn').onclick=()=>{ if(pending&&!isCpu(turn)){ const t=pending; $('acceptBtn').hidden=true; tryAnswer(t,true); } };
+$('hintBtn').onclick=()=>{
+  if(isCpu(turn)||hints[turn]<=0||over) return;
+  const c=PLACES.filter(p=>!used.has(p.id)&&(!letter||norm(p.name)[0]===letter)); if(!c.length){ say('No hints for this letter. You could give up this turn.'); return; }
+  hints[turn]--; const p=c[Math.floor(Math.random()*c.length)];
+  const n=p.name, shownHint=n.slice(0,2)+n.slice(2).replace(/[A-Za-z]/g,'_');
+  say(`Hint: a ${p.cat.toLowerCase()} → ${shownHint} (${n.replace(/[^A-Za-z]/g,'').length} letters)`); talk(`Hint: a ${p.cat.toLowerCase()} starting with ${n.slice(0,2).split('').join(' ')}.`); render();
+};
+$('giveBtn').onclick=()=>{ if(!isCpu(turn)&&!over&&!busy) loseHeart('You gave up this turn.'.replace('You',names[turn]==='You'?'You':names[turn])); };
+$('quitBtn').onclick=()=>{ over=true; clearInterval(timerId); try{ speechSynthesis.cancel(); }catch(e){} show('setup'); };
+$('startBtn').onclick=start; $('againBtn').onclick=()=>show('setup');
+/* voice: listen once, try every alternative and every phrase inside it */
+let rec=null;
+$('micBtn').onclick=()=>{
+  if(!SR||isCpu(turn)||over||busy) return;
+  if(rec){ try{ rec.stop(); }catch(e){} return; }
+  try{ speechSynthesis.cancel(); }catch(e){}
+  rec=new SR(); rec.lang='en-IN'; rec.interimResults=false; rec.maxAlternatives=5;
+  $('micBtn').classList.add('live'); $('heard').textContent='Listening…';
+  rec.onresult=ev=>{
+    const alts=[...ev.results[0]].map(a=>a.transcript.trim()).filter(Boolean);
+    $('heard').textContent=`I heard: “${alts[0]||''}”`;
+    for(const a of alts){ const w=a.split(/\s+/);
+      for(let len=w.length;len>=1;len--) for(let s=0;s+len<=w.length;s++){ const phrase=w.slice(s,s+len).join(' '); const h=lookup(phrase);
+        if(h && (!letter||norm(h.as)[0]===letter) && !used.has(h.p.id)){ tryAnswer(phrase); return; } } }
+    tryAnswer(alts[0]||'');
+  };
+  rec.onerror=ev=>{ $('heard').textContent= ev.error==='not-allowed' ? 'Microphone is blocked. Allow it in your browser settings, or switch to Typing.' : 'I didn’t catch that. Tap the microphone and try again.'; };
+  rec.onend=()=>{ rec=null; $('micBtn').classList.remove('live'); };
+  try{ rec.start(); }catch(e){ rec=null; $('micBtn').classList.remove('live'); }
+};
+})();
+</script>
+</body>
+</html>
